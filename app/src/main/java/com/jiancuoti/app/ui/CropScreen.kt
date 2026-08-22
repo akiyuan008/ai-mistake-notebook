@@ -206,7 +206,7 @@ fun CropScreen(
             ) {
                 // 暗色遮罩 + 挖洞（even-odd）
                 val mask = Path().apply { fillType = PathFillType.EvenOdd }
-                mask.addRect(0f, 0f, size.width, size.height)
+                mask.addRect(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height))
                 for (q in pageQuads) {
                     val p0 = toPx(q.pts[0])
                     mask.moveTo(p0.x, p0.y)
