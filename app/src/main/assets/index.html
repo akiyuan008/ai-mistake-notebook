@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>简错题 · AI 智能错题本</title>
-<meta name="description" content="简洁高级的 AI 智能错题本：拍照导入、多框选裁剪、连拍模式、AI 解析、错题库、智能组卷打印、学习统计。">
+<meta name="description" content="简洁高级的 AI 智能错题本：内置相机连拍、八点透视裁剪、拼接、图像增强、AI 解析、错题库、智能组卷打印、学习统计。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230EA5E9'/%3E%3Cpath fill='%23fff' d='M68 22H36c-3 0-5.5 2.5-5.5 5.5v45c0 3 2.5 5.5 5.5 5.5h32c3 0 5.5-2.5 5.5-5.5v-45c0-3-2.5-5.5-5.5-5.5zM36 27.5h14v22l-7-4.2-7 4.2v-22z'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
@@ -12,8 +12,8 @@
   --ink:#0C2B42; --ink2:#3E5F78; --ink3:#8AA6BA;
   --accent:#0EA5E9; --accent-deep:#0284C7; --accent-ink:#0369A1;
   --accent-soft:rgba(14,165,233,.12);
-  --glass:rgba(255,255,255,.62); --glass-strong:rgba(255,255,255,.82);
-  --glass-border:rgba(255,255,255,.8); --glass-inner:rgba(255,255,255,.5);
+  --glass:rgba(255,255,255,.62); --glass-strong:rgba(255,255,255,.85);
+  --glass-border:rgba(255,255,255,.8);
   --green:#10B981; --green-soft:rgba(16,185,129,.12);
   --amber:#F59E0B; --amber-soft:rgba(245,158,11,.14);
   --red:#F43F5E; --red-soft:rgba(244,63,94,.1);
@@ -24,11 +24,8 @@
   --font:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","MiSans","Noto Sans SC","Segoe UI",Roboto,sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{
-  font-family:var(--font);color:var(--ink);font-size:14px;line-height:1.6;min-height:100vh;
-  background:linear-gradient(165deg,#EAF6FF 0%,#D8ECFC 40%,#E2F1FE 75%,#F0F8FF 100%);
-  background-attachment:fixed;
-}
+body{font-family:var(--font);color:var(--ink);font-size:14px;line-height:1.6;min-height:100vh;
+  background:linear-gradient(165deg,#EAF6FF 0%,#D8ECFC 40%,#E2F1FE 75%,#F0F8FF 100%);background-attachment:fixed}
 body::before{content:"";position:fixed;top:-160px;right:-120px;width:460px;height:460px;border-radius:50%;
   background:radial-gradient(circle,rgba(56,189,248,.35),transparent 65%);pointer-events:none;z-index:0}
 body::after{content:"";position:fixed;bottom:-180px;left:-100px;width:520px;height:520px;border-radius:50%;
@@ -42,12 +39,10 @@ a{color:var(--accent-deep);text-decoration:none}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:rgba(14,165,233,.28);border-radius:8px}
 
-/* ===== 布局 ===== */
 .app{display:flex;min-height:100vh;position:relative;z-index:1}
 .sidebar{width:236px;position:fixed;top:14px;bottom:14px;left:14px;border-radius:var(--radius-lg);
   background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
-  border:1px solid var(--glass-border);box-shadow:var(--shadow);
-  display:flex;flex-direction:column;z-index:40;overflow:hidden}
+  border:1px solid var(--glass-border);box-shadow:var(--shadow);display:flex;flex-direction:column;z-index:40;overflow:hidden}
 .brand{display:flex;align-items:center;gap:11px;padding:22px 20px 16px}
 .brand-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#38BDF8,#0284C7);
   display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 6px 16px rgba(2,132,199,.35)}
@@ -73,7 +68,6 @@ a{color:var(--accent-deep);text-decoration:none}
 .content{padding:14px 30px 100px;max-width:1240px;width:100%}
 .mobile-tabbar{display:none}
 
-/* ===== 玻璃组件 ===== */
 .card{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
   border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:var(--shadow)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:12px;
@@ -105,7 +99,7 @@ a{color:var(--accent-deep);text-decoration:none}
 .empty-title{font-size:15px;font-weight:700;color:var(--ink2);margin-bottom:4px}
 .divider{height:1px;background:rgba(255,255,255,.7);margin:14px 0}
 
-/* ===== 统计 ===== */
+/* 统计 */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
 .stat-card{padding:20px}
 .stat-icon{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;margin-bottom:13px}
@@ -125,14 +119,52 @@ a{color:var(--accent-deep);text-decoration:none}
   font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
 .kp-rank.top{background:var(--amber-soft);color:#B45309}
 
-/* ===== 导入工作台 ===== */
-.import-grid{display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start}
-.dropzone{border:2px dashed rgba(14,165,233,.45);border-radius:var(--radius-lg);background:rgba(255,255,255,.45);
-  backdrop-filter:blur(12px);padding:44px 24px;text-align:center;cursor:pointer;transition:.2s}
-.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:rgba(224,242,254,.75)}
-.dz-title{font-size:16px;font-weight:800;margin:14px 0 6px}
-.dz-sub{font-size:12.5px;color:var(--ink3);line-height:1.9}
-.mode-seg{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+/* 提取入口 */
+.entry-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px}
+.entry-card{padding:26px 20px;text-align:center;cursor:pointer;transition:.2s}
+.entry-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.entry-icon{width:54px;height:54px;border-radius:17px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center}
+.entry-title{font-size:15px;font-weight:800;margin-bottom:3px}
+.entry-sub{font-size:12px;color:var(--ink3)}
+
+/* 相机 */
+.camera-mask{position:fixed;inset:0;background:#000;z-index:120;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:.25s}
+.camera-mask.show{opacity:1;pointer-events:auto}
+.cam-top{display:flex;align-items:center;padding:14px 16px;color:#fff;gap:12px;z-index:2}
+.cam-top .title{flex:1;text-align:center;font-weight:700;font-size:15px}
+.cam-view{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cam-view video{width:100%;height:100%;object-fit:cover}
+.cam-guide{position:absolute;inset:8% 5% 12% 5%;border:1.5px dashed rgba(255,255,255,.55);border-radius:14px;pointer-events:none}
+.cam-guide span{position:absolute;top:-24px;left:50%;transform:translateX(-50%);font-size:11.5px;color:rgba(255,255,255,.75);white-space:nowrap;background:rgba(0,0,0,.35);padding:2px 10px;border-radius:999px}
+.cam-bottom{padding:10px 20px calc(16px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:18px;color:#fff;z-index:2}
+.cam-strip{display:flex;gap:8px;overflow-x:auto;padding:0 20px 8px;z-index:2}
+.cam-strip img{width:52px;height:68px;object-fit:cover;border-radius:8px;border:2px solid rgba(255,255,255,.5);flex:none}
+.shutter{width:72px;height:72px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.35);flex:none;margin:0 auto;transition:.12s;box-shadow:0 0 0 4px rgba(255,255,255,.15)}
+.shutter:active{transform:scale(.9)}
+.cam-side{flex:1;display:flex;justify-content:center}
+.cam-btn{width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9.5px;color:#fff;border:1px solid rgba(255,255,255,.2)}
+.cam-count{position:absolute;top:-6px;right:-6px;background:var(--accent);min-width:19px;height:19px;border-radius:10px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}
+
+/* 相册 */
+.album-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.album-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;background:#E8F1F8}
+
+/* 裁剪工作台 */
+.viewer-wrap{position:relative;background:rgba(210,228,240,.6);border-radius:var(--radius);overflow:hidden;user-select:none;touch-action:none}
+.viewer-wrap>img{width:100%;pointer-events:none}
+.quad{position:absolute;cursor:move}
+.quad svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.quad .h{position:absolute;width:15px;height:15px;background:#0EA5E9;border:2.5px solid #fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(2,132,199,.45);pointer-events:auto}
+.quad .h.edge{width:17px;height:9px;border-radius:5px}
+.quad-menu{position:absolute;display:flex;gap:6px;z-index:5}
+.quad-menu button{padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:800;box-shadow:0 3px 10px rgba(12,43,66,.25);display:flex;align-items:center;gap:4px}
+.qm-extract{background:var(--green);color:#fff}
+.qm-stitch{background:#F59E0B;color:#fff}
+.qm-stitch.grouping{background:#7C3AED}
+.qm-del{background:var(--red);color:#fff;width:24px;padding:4px 0;justify-content:center}
+.qm-cancel{background:rgba(255,255,255,.92);color:var(--ink2)}
+.stitch-badge{position:absolute;top:-24px;left:-2px;background:#7C3AED;color:#fff;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px}
+.viewer-toolbar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,.7);flex-wrap:wrap}
 .thumb-strip{display:flex;gap:10px;overflow-x:auto;padding:14px}
 .thumb{width:84px;flex:none;cursor:pointer;position:relative}
 .thumb img{width:84px;height:110px;object-fit:cover;border-radius:10px;border:2.5px solid transparent;background:#E8F1F8;box-shadow:0 3px 10px rgba(12,72,120,.12)}
@@ -140,15 +172,6 @@ a{color:var(--accent-deep);text-decoration:none}
 .thumb .tdel{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s}
 .thumb:hover .tdel{opacity:1}
 .thumb-page{position:absolute;bottom:4px;left:4px;background:rgba(12,43,66,.75);color:#fff;font-size:10px;padding:1px 6px;border-radius:5px}
-.viewer-wrap{position:relative;background:rgba(210,228,240,.6);border-radius:var(--radius);overflow:hidden;user-select:none;touch-action:none}
-.viewer-wrap img{width:100%;pointer-events:none}
-.sel-box{position:absolute;border:2px solid #38BDF8;background:rgba(56,189,248,.1);cursor:move;
-  box-shadow:0 0 0 1.5px rgba(255,255,255,.75),0 4px 14px rgba(2,132,199,.25);border-radius:4px}
-.sel-handle{position:absolute;right:-8px;bottom:-8px;width:16px;height:16px;background:#0EA5E9;border:2.5px solid #fff;border-radius:5px;cursor:nwse-resize;box-shadow:0 2px 6px rgba(2,132,199,.4)}
-.sel-tag{position:absolute;top:-24px;left:-2px;background:linear-gradient(135deg,#38BDF8,#0284C7);color:#fff;font-size:10.5px;padding:2px 8px;border-radius:6px 6px 6px 0;font-weight:700}
-.sel-del{position:absolute;top:-24px;right:-2px;width:20px;height:20px;background:var(--red);color:#fff;border-radius:6px;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(244,63,94,.4)}
-.viewer-toolbar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,.7);flex-wrap:wrap}
-.burst-on{background:linear-gradient(135deg,#FBBF24,#F59E0B)!important;color:#fff!important;box-shadow:0 5px 14px rgba(245,158,11,.35)!important}
 .queue-item{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.6);align-items:center}
 .queue-item:last-child{border-bottom:none}
 .queue-thumb{width:52px;height:52px;object-fit:cover;border-radius:9px;background:#E8F1F8;flex:none}
@@ -157,53 +180,54 @@ a{color:var(--accent-deep);text-decoration:none}
 .st-doing{background:rgba(14,165,233,.14);color:var(--accent-ink)}
 .st-done{background:var(--green-soft);color:#059669}
 .st-fail{background:var(--red-soft);color:var(--red)}
-/* 页面组织 */
-.org-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;padding:16px}
-.org-card{background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.9);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);position:relative}
-.org-card img{width:100%;height:190px;object-fit:cover;background:#E8F1F8}
-.org-num{position:absolute;top:8px;left:8px;background:rgba(12,43,66,.78);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:7px}
-.org-ops{display:flex;justify-content:space-around;padding:7px 4px;border-top:1px solid rgba(255,255,255,.7)}
-.org-ops button{width:32px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink2)}
-.org-ops button:hover{background:rgba(14,165,233,.12);color:var(--accent-ink)}
+.import-grid{display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start}
 
-/* ===== 错题库 ===== */
+/* 错题库列表 */
 .lib-toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
 .search-box{position:relative;flex:1;min-width:220px;max-width:380px}
 .search-box svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
 .search-box input{width:100%;padding-left:38px}
-.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-.m-card{overflow:hidden;cursor:pointer;transition:.2s;display:flex;flex-direction:column}
-.m-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
-.m-img{height:170px;background:rgba(230,242,250,.8);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
-.m-img img{width:100%;height:100%;object-fit:cover}
-.m-img .noimg{color:var(--ink3);font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:8px}
-.m-body{padding:14px 16px;flex:1;display:flex;flex-direction:column;gap:8px}
-.m-q{font-size:13.5px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:42px}
-.m-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink3);margin-top:auto}
-.mastered-ribbon{position:absolute;top:10px;right:10px;background:var(--green);color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;box-shadow:0 3px 8px rgba(16,185,129,.35)}
+.seg{display:inline-flex;background:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.8);border-radius:12px;padding:3px}
+.seg button{padding:6px 14px;border-radius:9px;font-size:13px;font-weight:700;color:var(--ink2)}
+.seg button.on{background:linear-gradient(135deg,#38BDF8,#0284C7);color:#fff;box-shadow:0 3px 8px rgba(2,132,199,.28)}
+.m-row{display:flex;gap:13px;padding:14px 16px;cursor:pointer;transition:.16s;align-items:center;margin-bottom:10px}
+.m-row:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.m-row-img{width:86px;height:86px;border-radius:11px;object-fit:cover;background:#E8F1F8;flex:none}
+.m-row-img.none{display:flex;align-items:center;justify-content:center;color:var(--ink3)}
+.m-row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.m-row-q{font-size:13.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.m-row-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink3);flex-wrap:wrap}
+.mastered-ribbon{position:absolute;top:10px;right:10px;background:var(--green);color:#fff;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
 
-/* ===== 组卷 ===== */
-.compose-grid{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+/* 组卷 */
+.compose-cond{padding:20px}
+.cond-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big-action{display:flex;align-items:center;gap:14px;width:100%;padding:18px;border-radius:15px;margin-bottom:12px;
+  background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.9);transition:.18s;text-align:left}
+.big-action:hover{background:rgba(255,255,255,.9);transform:translateY(-1px)}
+.big-action .ba-icon{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
+.big-action .ba-title{font-size:15px;font-weight:800}
+.big-action .ba-sub{font-size:12px;color:var(--ink3)}
 .q-pick{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.6);cursor:pointer;align-items:flex-start;transition:.12s}
 .q-pick:hover{background:rgba(255,255,255,.5)}
 .q-pick input{margin-top:4px;accent-color:var(--accent);width:15px;height:15px;flex:none}
 .q-pick img{width:56px;height:56px;object-fit:cover;border-radius:9px;background:#E8F1F8;flex:none}
-.paper-sheet{background:#fff;border-radius:8px;box-shadow:var(--shadow-lg);padding:56px 52px;max-width:760px;margin:0 auto;min-height:500px;color:#111}
-.paper-sheet h2{text-align:center;font-size:22px;letter-spacing:2px;margin-bottom:6px}
-.paper-meta{text-align:center;font-size:12.5px;color:#666;margin-bottom:26px}
-.paper-q{margin-bottom:22px;page-break-inside:avoid}
+.paper-sheet{background:#fff;border-radius:8px;box-shadow:var(--shadow-lg);padding:52px 48px;max-width:760px;margin:0 auto;min-height:500px;color:#111}
+.paper-sheet h2{text-align:center;font-size:22px;letter-spacing:3px;margin-bottom:4px}
+.paper-sub{text-align:center;font-size:12px;color:#999;margin-bottom:14px}
+.paper-info{display:flex;justify-content:space-between;font-size:13px;color:#444;border-bottom:1px solid #ddd;padding-bottom:12px;margin-bottom:22px}
+.paper-info span b{font-weight:400}
+.paper-q{margin-bottom:24px;page-break-inside:avoid}
 .paper-q .q-title{font-weight:700;margin-bottom:8px;font-size:14.5px}
 .paper-q img{max-width:88%;border:1px solid #ddd;border-radius:4px;margin:6px 0}
+.answer-area{margin-top:10px;border:1px dashed #bbb;border-radius:8px;padding:10px 12px;color:#aaa;font-size:12.5px;min-height:44px}
 .paper-a{margin-top:10px;padding:10px 12px;background:#F3F8FC;border-radius:8px;font-size:13px;color:#333;page-break-inside:avoid}
-.seg{display:inline-flex;background:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.8);border-radius:12px;padding:3px}
-.seg button{padding:6px 14px;border-radius:9px;font-size:13px;font-weight:700;color:var(--ink2)}
-.seg button.on{background:linear-gradient(135deg,#38BDF8,#0284C7);color:#fff;box-shadow:0 3px 8px rgba(2,132,199,.28)}
 
-/* ===== 模态 / Toast ===== */
+/* 模态 / Toast */
 .modal-mask{position:fixed;inset:0;background:rgba(12,43,66,.4);backdrop-filter:blur(4px);z-index:100;
   display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:.2s}
 .modal-mask.show{opacity:1;pointer-events:auto}
-.modal{background:rgba(255,255,255,.92);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.9);
+.modal{background:rgba(255,255,255,.93);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.9);
   border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:640px;max-height:88vh;
   display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:.22s}
 .modal-mask.show .modal{transform:none}
@@ -216,16 +240,13 @@ a{color:var(--accent-deep);text-decoration:none}
 .toast{background:rgba(12,43,66,.9);backdrop-filter:blur(10px);color:#fff;padding:10px 20px;border-radius:999px;
   font-size:13.5px;font-weight:600;box-shadow:var(--shadow-lg);animation:toastIn .25s cubic-bezier(.22,1,.36,1);display:flex;gap:8px;align-items:center}
 @keyframes toastIn{from{opacity:0;transform:translateY(-10px)}}
-
-/* ===== 详情 ===== */
 .detail-img{border-radius:12px;border:1px solid rgba(255,255,255,.9);max-height:340px;object-fit:contain;width:100%;background:#EFF6FB}
 .section-block{border:1px solid rgba(255,255,255,.9);border-radius:13px;padding:14px 16px;margin-bottom:12px;background:rgba(255,255,255,.55)}
 .section-block h4{font-size:12.5px;font-weight:800;color:var(--ink3);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .section-block .body{font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
 
-/* ===== 响应式 ===== */
 @media (max-width:1080px){
-  .import-grid,.compose-grid,.two-col{grid-template-columns:1fr}
+  .import-grid,.two-col{grid-template-columns:1fr}
   .stat-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:768px){
@@ -233,11 +254,13 @@ a{color:var(--accent-deep);text-decoration:none}
   .main{margin-left:0}
   .topbar{padding:12px 14px 8px}
   .content{padding:10px 14px 110px}
-  .mobile-tabbar{display:flex;position:fixed;bottom:10px;left:10px;right:10px;
-    background:rgba(255,255,255,.72);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
-    border:1px solid var(--glass-border);border-radius:20px;z-index:50;padding:7px 8px;box-shadow:var(--shadow-lg)}
-  .mtab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;border-radius:13px;color:var(--ink3);font-size:10.5px;font-weight:700}
+  .mobile-tabbar{display:flex;position:fixed;bottom:10px;left:10px;right:10px;align-items:center;
+    background:rgba(255,255,255,.75);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--glass-border);border-radius:24px;z-index:50;padding:7px 10px;box-shadow:var(--shadow-lg)}
+  .mtab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;border-radius:14px;color:var(--ink3);font-size:10.5px;font-weight:700}
   .mtab.on{color:var(--accent-ink);background:var(--accent-soft)}
+  .mtab-center{flex:none;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#38BDF8,#0284C7);
+    color:#fff;display:flex;align-items:center;justify-content:center;margin:0 6px -14px;box-shadow:0 8px 20px rgba(2,132,199,.4);border:3px solid #fff}
   .stat-grid{grid-template-columns:1fr 1fr;gap:10px}
   .modal{max-height:92vh}
 }
@@ -257,40 +280,72 @@ a{color:var(--accent-deep);text-decoration:none}
       <div class="brand-logo">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
       </div>
-      <div>
-        <div class="brand-name">简错题</div>
-        <div class="brand-sub">AI MISTAKE BOOK</div>
-      </div>
+      <div><div class="brand-name">简错题</div><div class="brand-sub">AI MISTAKE BOOK</div></div>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-foot" id="sideFoot">
-      数据保存在本机 · 云端同步未配置
-    </div>
+    <div class="sidebar-foot" id="sideFoot">数据保存在本机</div>
   </aside>
-
   <main class="main">
     <header class="topbar"><div class="topbar-glass" id="topbar"></div></header>
     <div class="content" id="view"></div>
   </main>
 </div>
-
 <nav class="mobile-tabbar" id="tabbar"></nav>
 <div class="modal-mask" id="modalMask"><div class="modal" id="modalBox"></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 内置相机 -->
+<div class="camera-mask" id="cameraMask">
+  <div class="cam-top">
+    <button class="icon-btn" style="color:#fff" id="camClose"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    <div class="title" id="camTitle">拍摄试卷</div>
+    <button class="icon-btn" style="color:#fff" id="camTorch"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v5h6v-5l3-3V9H6v5zm5-12h2v3h-2V2zM3.5 5.88l1.41-1.41 2.12 2.12L5.62 8 3.5 5.88zm13.46.71l2.12-2.12 1.41 1.41L18.38 8l-1.42-1.41z"/></svg></button>
+  </div>
+  <div class="cam-view">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-guide"><span>将试卷放入框内，保持平整</span></div>
+  </div>
+  <div class="cam-strip" id="camStrip"></div>
+  <div class="cam-bottom">
+    <div class="cam-side">
+      <button class="cam-btn" id="camAlbum" style="position:relative">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+        相册
+      </button>
+    </div>
+    <button class="shutter" id="shutterBtn"></button>
+    <div class="cam-side">
+      <button class="btn btn-primary btn-sm" id="camDone" style="min-width:76px">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 内置相册 -->
+<div class="modal-mask" id="albumMask" style="z-index:130">
+  <div class="modal wide">
+    <div class="modal-head"><h3>相册</h3><button class="icon-btn" id="albumClose"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="albumPick"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> 从系统相册多选导入</button>
+        <span style="font-size:12px;color:var(--ink3);align-self:center" id="albumHint"></span>
+      </div>
+      <div class="album-grid" id="albumGrid"></div>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" multiple hidden>
-<input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 "use strict";
 /* ============================================================
- * 简错题 · AI 智能错题本 v3（天空蓝玻璃拟态版）
- * 多框选裁剪 · 连拍模式 · 页面组织 · AI 解析队列 · 错题库
- * 智能组卷打印 · 学习统计 · 本地存储 + Supabase 云同步
+ * 简错题 v4
+ * 内置相机 · 八点透视裁剪 · 拼接 · 扫描增强 · AI 解析
+ * 错题库 · 组卷 · 统计 · Supabase 云同步
  * ============================================================ */
 
-/* ---------- 常量 ---------- */
 const SUBJECTS = ["数学","语文","英语","物理","化学","生物","历史","地理","政治","其他"];
 const SUBJ_COLOR = {"数学":"#059669","语文":"#E11D48","英语":"#7C3AED","物理":"#EA580C","化学":"#0D9488","生物":"#DB2777","历史":"#B45309","地理":"#2563EB","政治":"#4F46E5","其他":"#64748B"};
 const TIME_RANGES = [
@@ -299,7 +354,7 @@ const TIME_RANGES = [
 ];
 const ICONS = {
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>',
-  upload:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>',
+  camera:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>',
   book:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>',
   compose:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>',
   papers:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>',
@@ -312,24 +367,23 @@ const ICONS = {
   check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
   close:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
   download:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',
+  upload:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>',
   image:'<svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>',
   fire:'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>',
-  camera:'<svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z"/></svg>',
-  rotate:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/></svg>',
-  left:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
-  right:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>',
-  burst:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>'
+  stitch:'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>',
+  cut:'<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>',
+  pdf:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>',
+  shuffle:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>',
+  hand:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 11.24V7.5C9 6.12 10.12 5 11.5 5S14 6.12 14 7.5v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.84 4.63l-4.54-2.26c-.17-.07-.35-.11-.54-.11H13v-6c0-.83-.67-1.5-1.5-1.5S10 6.67 10 7.5v10.74c-3.6-.76-3.54-.75-3.67-.75-.31 0-.59.13-.79.33l-.79.8 4.94 4.94c.27.27.65.44 1.06.44h6.79c.75 0 1.33-.55 1.44-1.28l.75-5.27c.01-.07.02-.14.02-.2 0-.62-.38-1.16-.91-1.38z"/></svg>'
 };
 const ROUTES = {
-  home:{title:"学习概览",sub:"错题数据一览",icon:"home"},
-  import:{title:"错题提取",sub:"导入 · 连拍 · 多框选 · AI 解析",icon:"upload"},
-  library:{title:"错题库",sub:"全部错题 · 搜索筛选 · 详情编辑",icon:"book"},
-  compose:{title:"智能组卷",sub:"挑选错题组卷 · 打印导出",icon:"compose"},
-  papers:{title:"我的试卷",sub:"导入记录与组卷记录",icon:"papers"},
-  settings:{title:"设置",sub:"云同步 · AI 解析 · 数据管理",icon:"settings"}
+  import:{title:"错题提取",sub:"拍摄 · 导入 · 裁剪 · 解析",icon:"camera"},
+  library:{title:"错题库",sub:"全部错题 · 搜索筛选",icon:"book"},
+  compose:{title:"组卷",sub:"随机 / 手动组卷 · 打印",icon:"compose"},
+  home:{title:"统计",sub:"学习数据一览",icon:"home"},
+  settings:{title:"我的",sub:"云同步 · 解析配置 · 数据",icon:"settings"}
 };
 
-/* ---------- 工具 ---------- */
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -350,7 +404,7 @@ function openModal(html,wide=false){
 }
 function closeModal(){$("#modalMask").classList.remove("show");document.body.style.overflow=""}
 $("#modalMask").addEventListener("click",e=>{if(e.target.id==="modalMask")closeModal()});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeAlbum()}});
 function renderMath(el){
   try{
     if(window.renderMathInElement)renderMathInElement(el,{delimiters:[
@@ -384,7 +438,7 @@ const DB={
   clear(store){return new Promise((res,rej)=>{const r=DB.tx(store,"readwrite").clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 };
 
-/* ---------- Supabase 云同步 ---------- */
+/* ---------- Supabase ---------- */
 const SUPA={url:"",key:"",on(){return !!(this.url&&this.key)}};
 async function supaFetch(path,opt={}){
   const resp=await fetch(SUPA.url.replace(/\/$/,"")+"/rest/v1/"+path,{
@@ -408,10 +462,7 @@ const cloud={
       updated_at:new Date(m.updatedAt||Date.now()).toISOString()
     })});}catch(e){console.warn("cloud push fail",e)}
   },
-  async delMistake(id){
-    if(!SUPA.on())return;
-    try{await supaFetch("mistakes?id=eq."+encodeURIComponent(id),{method:"DELETE"});}catch(e){console.warn(e)}
-  },
+  async delMistake(id){if(!SUPA.on())return;try{await supaFetch("mistakes?id=eq."+encodeURIComponent(id),{method:"DELETE"});}catch(e){console.warn(e)}},
   async pushPaper(p){
     if(!SUPA.on())return;
     try{await supaFetch("papers",{method:"POST",body:JSON.stringify({
@@ -419,10 +470,7 @@ const cloud={
       questions:p.questions||[],created_at:new Date(p.createdAt).toISOString()
     })});}catch(e){console.warn(e)}
   },
-  async delPaper(id){
-    if(!SUPA.on())return;
-    try{await supaFetch("papers?id=eq."+encodeURIComponent(id),{method:"DELETE"});}catch(e){console.warn(e)}
-  },
+  async delPaper(id){if(!SUPA.on())return;try{await supaFetch("papers?id=eq."+encodeURIComponent(id),{method:"DELETE"});}catch(e){console.warn(e)}},
   async pull(){
     if(!SUPA.on())return;
     try{
@@ -453,14 +501,15 @@ const cloud={
 /* ---------- 状态与路由 ---------- */
 const state={
   mistakes:[],papers:[],
-  settings:{defaultSubject:"数学",apiUrl:"",apiKey:"",apiModel:""},
-  route:"home",
+  settings:{defaultSubject:"数学",apiUrl:"",apiKey:"",apiModel:"",enhance:true},
+  route:"import",
   libFilter:{kw:"",subject:"全部",status:"全部"},
   statRange:"7d",
-  work:{pages:[],cur:0,selections:[],burst:false,organize:false},
+  work:{pages:[],cur:0,quads:[],stitchGroup:[],stitchMode:false},
   queue:[],
   composeSel:new Set(),
-  composeFilter:{subject:"全部",kp:"全部",freqOnly:false,includeMastered:false}
+  composeCond:{subject:"全部",kp:"",errMin:"全部",range:"全部",mastered:"全部"},
+  cam:{stream:null,shots:[],torch:false}
 };
 async function loadAll(){
   state.mistakes=await DB.all("mistakes");
@@ -483,12 +532,12 @@ function syncFoot(){
     :`<span class="sync-dot" style="background:#CBD5E1"></span>云端同步未配置`;
 }
 function go(route){
-  if(!ROUTES[route])route="home";
+  if(!ROUTES[route])route="import";
   state.route=route;location.hash="#/"+route;
   renderNav();renderTopbar();renderView();
 }
 window.addEventListener("hashchange",()=>{
-  const r=location.hash.replace(/^#\//,"")||"home";
+  const r=location.hash.replace(/^#\//,"")||"import";
   if(r!==state.route)go(r);
 });
 function renderNav(){
@@ -498,10 +547,13 @@ function renderNav(){
       ${ICONS[v.icon]}<span>${v.title}</span>${badge?`<span class="nav-badge">${badge}</span>`:""}</div>`;
   }).join("");
   $$("#nav .nav-item").forEach(el=>el.onclick=()=>go(el.dataset.route));
-  const tabs=[["home","概览"],["import","提取"],["library","错题库"],["compose","组卷"],["settings","设置"]];
-  $("#tabbar").innerHTML=tabs.map(([k,label])=>`<div class="mtab ${state.route===k?"on":""}" data-route="${k}">
-    ${ICONS[ROUTES[k].icon]}${label}</div>`).join("");
-  $$("#tabbar .mtab").forEach(el=>el.onclick=()=>go(el.dataset.route));
+  const tabs=[["library","错题库"],["compose","组卷"],["import",""],["home","统计"],["settings","我的"]];
+  $("#tabbar").innerHTML=tabs.map(([k,label])=>k==="import"
+    ?`<button class="mtab-center" data-route="import">${ICONS.plus.replace('width="16" height="16"','width="26" height="26"')}</button>`
+    :`<div class="mtab ${state.route===k?"on":""}" data-route="${k}">${ICONS[ROUTES[k].icon]}${label}</div>`).join("");
+  $$("#tabbar [data-route]").forEach(el=>el.onclick=()=>{
+    if(el.dataset.route==="import"){go("import");openCamera()}else go(el.dataset.route);
+  });
 }
 function renderTopbar(){
   const r=ROUTES[state.route];
@@ -509,11 +561,1103 @@ function renderTopbar(){
 }
 function renderView(){
   const v=$("#view");
-  ({home:renderHome,import:renderImport,library:renderLibrary,
-    compose:renderCompose,papers:renderPapers,settings:renderSettings})[state.route](v);
+  ({import:renderImport,library:renderLibrary,compose:renderCompose,
+    home:renderHome,settings:renderSettings})[state.route](v);
 }
 
-/* ---------- 时间范围 ---------- */
+/* ============================================================
+ * 内置相机
+ * ============================================================ */
+async function openCamera(){
+  const mask=$("#cameraMask");
+  mask.classList.add("show");
+  state.cam.shots=[];renderCamStrip();
+  const video=$("#camVideo");
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"environment",width:{ideal:1920},height:{ideal:1080}},
+      audio:false
+    });
+    state.cam.stream=stream;
+    video.srcObject=stream;
+    await video.play().catch(()=>{});
+    const track=stream.getVideoTracks()[0];
+    const caps=track.getCapabilities?track.getCapabilities():{};
+    $("#camTorch").style.visibility=caps.torch?"visible":"hidden";
+  }catch(e){
+    toast("相机打开失败："+(e.message||"请检查权限"),"err");
+    closeCamera();
+  }
+}
+function closeCamera(){
+  const mask=$("#cameraMask");
+  mask.classList.remove("show");
+  if(state.cam.stream){
+    state.cam.stream.getTracks().forEach(t=>t.stop());
+    state.cam.stream=null;
+  }
+  $("#camVideo").srcObject=null;
+}
+function renderCamStrip(){
+  const strip=$("#camStrip");
+  strip.innerHTML=state.cam.shots.map((s,i)=>`<img src="${s.thumb||s.src}" data-shot="${i}">`).join("");
+  const done=$("#camDone");
+  done.textContent=state.cam.shots.length?`完成 (${state.cam.shots.length})`:"完成";
+}
+function captureShot(){
+  const video=$("#camVideo");
+  if(!video.videoWidth){toast("相机未就绪","err");return}
+  const c=document.createElement("canvas");
+  c.width=video.videoWidth;c.height=video.videoHeight;
+  c.getContext("2d").drawImage(video,0,0);
+  const src=c.toDataURL("image/jpeg",0.9);
+  const tc=document.createElement("canvas");
+  const s=160/Math.max(c.width,c.height);
+  tc.width=c.width*s;tc.height=c.height*s;
+  tc.getContext("2d").drawImage(c,0,0,tc.width,tc.height);
+  state.cam.shots.push({src,thumb:tc.toDataURL("image/jpeg",0.6)});
+  renderCamStrip();
+  const mask=$("#cameraMask");
+  mask.style.transition="none";mask.style.opacity=".55";
+  setTimeout(()=>{mask.style.transition=".25s";mask.style.opacity="1"},80);
+}
+$("#shutterBtn").addEventListener("click",captureShot);
+$("#camClose").addEventListener("click",()=>closeCamera());
+$("#camDone").addEventListener("click",()=>{
+  if(!state.cam.shots.length){closeCamera();return}
+  for(const s of state.cam.shots)addPage(s.src,s.thumb);
+  const n=state.cam.shots.length;
+  state.cam.shots=[];
+  closeCamera();
+  toast(`已导入 ${n} 页，请框选题目`,"ok");
+  if(state.route!=="import")go("import");else renderImport($("#view"));
+});
+$("#camTorch").addEventListener("click",async()=>{
+  const track=state.cam.stream?.getVideoTracks()[0];
+  if(!track)return;
+  state.cam.torch=!state.cam.torch;
+  try{await track.applyConstraints({advanced:[{torch:state.cam.torch}]})}catch(e){state.cam.torch=false}
+});
+$("#camAlbum").addEventListener("click",()=>openAlbum());
+
+/* ============================================================
+ * 内置相册
+ * ============================================================ */
+let albumItems=[];
+async function openAlbum(){
+  $("#albumMask").classList.add("show");
+  const grid=$("#albumGrid");
+  grid.innerHTML=`<div style="grid-column:1/-1;color:var(--ink3);font-size:13px;padding:20px;text-align:center">加载中…</div>`;
+  albumItems=[];
+  if(window.AlbumBridge){
+    $("#albumHint").textContent="读取本机相册（最近 200 张）";
+    try{
+      const list=JSON.parse(window.AlbumBridge.getImages(200)||"[]");
+      albumItems=list;
+      grid.innerHTML=list.map((it,i)=>`<img src="${it.thumb}" data-album="${i}" loading="lazy">`).join("")
+        ||`<div style="grid-column:1/-1;color:var(--ink3);text-align:center;padding:20px">相册为空</div>`;
+      $$("#albumGrid img[data-album]").forEach(im=>im.onclick=()=>pickAlbumItem(+im.dataset.album));
+    }catch(e){
+      grid.innerHTML=`<div style="grid-column:1/-1;color:var(--ink3);text-align:center;padding:20px">读取失败：${esc(e.message)}</div>`;
+    }
+  }else{
+    $("#albumHint").textContent="浏览器环境：请使用下方按钮选择图片";
+    grid.innerHTML=`<div style="grid-column:1/-1;color:var(--ink3);text-align:center;padding:20px">
+      网页版无内置相册，点击下方按钮从系统选择图片导入</div>`;
+  }
+}
+function closeAlbum(){$("#albumMask").classList.remove("show")}
+$("#albumClose").addEventListener("click",closeAlbum);
+$("#albumMask").addEventListener("click",e=>{if(e.target.id==="albumMask")closeAlbum()});
+$("#albumPick").addEventListener("click",()=>$("#fileInput").click());
+async function pickAlbumItem(i){
+  const it=albumItems[i];if(!it)return;
+  toast("正在读取图片…");
+  try{
+    const full=window.AlbumBridge.getImage(it.id);
+    if(!full)throw new Error("读取为空");
+    addPage(full);
+    toast("已添加到工作台","ok");
+    closeAlbum();
+    if(state.route!=="import")go("import");else renderImport($("#view"));
+  }catch(e){toast("读取失败："+e.message,"err")}
+}
+
+/* ============================================================
+ * 提取工作台
+ * ============================================================ */
+function renderImport(v){
+  const w=state.work;
+  const pending=state.queue.filter(q=>q.status==="wait"||q.status==="doing").length;
+  const doneN=state.queue.filter(q=>q.status==="done").length;
+  v.innerHTML=`
+  ${w.pages.length===0?`
+  <div class="entry-grid">
+    <div class="card entry-card" id="entryCam">
+      <div class="entry-icon" style="background:linear-gradient(135deg,#38BDF8,#0284C7);color:#fff">${ICONS.camera.replace('width="18" height="18"','width="26" height="26"')}</div>
+      <div class="entry-title">拍摄试卷</div>
+      <div class="entry-sub">内置相机 · 支持连续多张拍摄</div>
+    </div>
+    <div class="card entry-card" id="entryAlbum">
+      <div class="entry-icon" style="background:rgba(14,165,233,.12);color:var(--accent-deep)">${ICONS.image.replace('width="40" height="40"','width="26" height="26"')}</div>
+      <div class="entry-title">相册导入</div>
+      <div class="entry-sub">内置相册 · 直接选取照片</div>
+    </div>
+    <div class="card entry-card" id="entryFile">
+      <div class="entry-icon" style="background:var(--amber-soft);color:#B45309">${ICONS.pdf}</div>
+      <div class="entry-title">文件导入</div>
+      <div class="entry-sub">图片 / PDF · 支持多文件与粘贴</div>
+    </div>
+  </div>
+  <div class="card" style="padding:18px">
+    <div style="font-size:13px;font-weight:800;margin-bottom:8px">使用流程</div>
+    <ol style="font-size:12.5px;color:var(--ink2);padding-left:18px;line-height:2.1">
+      <li>拍摄或导入试卷（相机内可连续拍多张）</li>
+      <li>在预览图上拖拽创建多个框，支持八点透视调整</li>
+      <li>跨页/跨区域题目可用「拼接」合并成一道</li>
+      <li>点「批量提取」，自动增强画质并进入解析队列</li>
+    </ol>
+  </div>`:`
+  <div class="import-grid">
+    <div class="card">
+      <div class="thumb-strip" id="thumbStrip">
+        ${w.pages.map((p,i)=>`<div class="thumb ${i===w.cur?"on":""}" data-i="${i}">
+          <img src="${p.thumb}" alt="第${i+1}页"><span class="thumb-page">${i+1}</span>
+          <span class="tdel" data-del="${i}">×</span></div>`).join("")}
+        <div class="thumb" id="addMore">
+          <div style="width:84px;height:110px;border:2px dashed rgba(14,165,233,.45);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent-deep);font-size:11px;gap:4px;background:rgba(255,255,255,.5)">${ICONS.plus}添加</div>
+        </div>
+      </div>
+      <div class="viewer-wrap" id="viewerWrap"><img id="viewerImg" src="${w.pages[w.cur]?.src||""}" alt="预览"></div>
+      <div class="viewer-toolbar">
+        <span class="btn btn-ghost btn-sm" id="addQuad">${ICONS.plus} 添加框选</span>
+        <span class="btn btn-ghost btn-sm" id="clearQuads">清空</span>
+        ${w.stitchMode?`<span class="btn btn-sm" id="stitchDone" style="background:#7C3AED;color:#fff">完成拼接 (${w.stitchGroup.length})</span>`:""}
+        <span style="margin-left:auto;font-size:11.5px;color:var(--ink3)">拖角透视矫正 · 拖边中点微调 · 点框内菜单拼接</span>
+        <span class="btn btn-primary btn-sm" id="extractAll">批量提取 (${w.quads.length})</span>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="panel-title">解析队列 <span class="hint">${pending?`${pending} 个进行中`:doneN?`已完成 ${doneN}`:""}</span></div>
+        <div id="queueList"></div>
+      </div>
+      <div class="card" style="padding:16px">
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:700">
+          <input type="checkbox" id="enhanceToggle" ${state.settings.enhance!==false?"checked":""} style="accent-color:var(--accent);width:16px;height:16px">
+          提取时自动增强画质
+        </label>
+        <div style="font-size:12px;color:var(--ink3);margin-top:6px;line-height:1.7">
+          去除阴影与底色、提亮纸张、加深字迹，让错题图更清晰（类似扫描仪效果）。</div>
+      </div>
+    </div>
+  </div>`}`;
+  bindImport();renderQueue();
+}
+function bindImport(){
+  const w=state.work;
+  const ec=$("#entryCam");if(ec)ec.onclick=()=>openCamera();
+  const ea=$("#entryAlbum");if(ea)ea.onclick=()=>openAlbum();
+  const ef=$("#entryFile");if(ef)ef.onclick=()=>$("#fileInput").click();
+  const addMore=$("#addMore");if(addMore)addMore.onclick=()=>openAlbum();
+  $$("#thumbStrip .thumb[data-i]").forEach(t=>t.onclick=e=>{
+    if(e.target.dataset.del!==undefined)return;
+    w.cur=+t.dataset.i;w.quads=[];w.stitchGroup=[];w.stitchMode=false;
+    renderImport($("#view"));
+  });
+  $$("#thumbStrip .tdel").forEach(d=>d.onclick=e=>{
+    e.stopPropagation();
+    w.pages.splice(+d.dataset.del,1);
+    w.cur=Math.max(0,Math.min(w.cur,w.pages.length-1));
+    w.quads=[];renderImport($("#view"));
+  });
+  const wrap=$("#viewerWrap");
+  if(wrap){
+    initQuads(wrap);
+    $("#addQuad").onclick=()=>{
+      w.quads.push(defaultQuad());
+      drawQuads(wrap);updateExtractBtn();
+    };
+    $("#clearQuads").onclick=()=>{w.quads=[];w.stitchGroup=[];w.stitchMode=false;drawQuads(wrap);updateExtractBtn();renderImport($("#view"))};
+    $("#extractAll").onclick=()=>extractAll();
+    const sd=$("#stitchDone");if(sd)sd.onclick=()=>finishStitch();
+    const et=$("#enhanceToggle");if(et)et.onchange=async()=>{state.settings.enhance=et.checked;await saveSettings()};
+  }
+}
+function updateExtractBtn(){
+  const b=$("#extractAll");
+  if(b)b.textContent=`批量提取 (${state.work.quads.length})`;
+}
+
+/* ============================================================
+ * 八点透视框选
+ * ============================================================ */
+function defaultQuad(){
+  return {pts:[{x:8,y:8},{x:92,y:8},{x:92,y:42},{x:8,y:42}],group:0};
+}
+function quadCenter(q){
+  return {x:(q.pts[0].x+q.pts[1].x+q.pts[2].x+q.pts[3].x)/4,
+          y:(q.pts[0].y+q.pts[1].y+q.pts[2].y+q.pts[3].y)/4};
+}
+function initQuads(wrap){
+  drawQuads(wrap);
+  let drag=null;
+  const pos=e=>{
+    const r=wrap.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    return {x:Math.max(0,Math.min(100,(t.clientX-r.left)/r.width*100)),
+            y:Math.max(0,Math.min(100,(t.clientY-r.top)/r.height*100))};
+  };
+  wrap.addEventListener("mousedown",e=>{
+    const h=e.target.closest("[data-handle]");
+    if(h){
+      const qi=+h.closest(".quad").dataset.qi;
+      drag={mode:h.dataset.handle,qi,idx:+h.dataset.idx,sx:pos(e).x,sy:pos(e).y,
+        orig:JSON.parse(JSON.stringify(state.work.quads[qi].pts))};
+      e.preventDefault();return;
+    }
+    const body=e.target.closest(".quad");
+    if(body){
+      const qi=+body.dataset.qi;
+      drag={mode:"move",qi,sx:pos(e).x,sy:pos(e).y,
+        orig:JSON.parse(JSON.stringify(state.work.quads[qi].pts))};
+      e.preventDefault();
+    }
+  });
+  const move=e=>{
+    if(!drag)return;e.preventDefault();
+    const p=pos(e);const dx=p.x-drag.sx,dy=p.y-drag.sy;
+    const q=state.work.quads[drag.qi];if(!q){drag=null;return}
+    if(drag.mode==="move"){
+      q.pts=drag.orig.map(pt=>({x:Math.max(0,Math.min(100,pt.x+dx)),y:Math.max(0,Math.min(100,pt.y+dy))}));
+    }else if(drag.mode==="corner"){
+      q.pts[drag.idx]={x:p.x,y:p.y};
+    }else if(drag.mode==="edge"){
+      const [a,b]=[[0,1],[1,2],[2,3],[3,0]][drag.idx];
+      const o=drag.orig;
+      const na={x:Math.max(0,Math.min(100,o[a].x+dx)),y:Math.max(0,Math.min(100,o[a].y+dy))};
+      const nb={x:Math.max(0,Math.min(100,o[b].x+dx)),y:Math.max(0,Math.min(100,o[b].y+dy))};
+      q.pts[a]=na;q.pts[b]=nb;
+    }
+    drawQuads(wrap);
+  };
+  const up=()=>{drag=null};
+  window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
+  wrap.addEventListener("touchstart",e=>{
+    const h=e.target.closest("[data-handle]");
+    if(h){
+      const qi=+h.closest(".quad").dataset.qi;
+      drag={mode:h.dataset.handle,qi,idx:+h.dataset.idx,sx:pos(e).x,sy:pos(e).y,
+        orig:JSON.parse(JSON.stringify(state.work.quads[qi].pts))};
+      e.preventDefault();return;
+    }
+    const body=e.target.closest(".quad");
+    if(body){
+      const qi=+body.dataset.qi;
+      drag={mode:"move",qi,sx:pos(e).x,sy:pos(e).y,
+        orig:JSON.parse(JSON.stringify(state.work.quads[qi].pts))};
+      e.preventDefault();
+    }
+  },{passive:false});
+  wrap.addEventListener("touchmove",move,{passive:false});
+  wrap.addEventListener("touchend",up);
+}
+const GROUP_COLORS=["#7C3AED","#DB2777","#0D9488","#B45309"];
+function drawQuads(wrap){
+  wrap.querySelectorAll(".quad,.quad-menu").forEach(el=>el.remove());
+  const w=state.work;
+  w.quads.forEach((q,qi)=>{
+    const el=document.createElement("div");
+    el.className="quad";el.dataset.qi=qi;
+    el.style.cssText="position:absolute;inset:0";
+    const p=q.pts;
+    const gc=q.group?GROUP_COLORS[(q.group-1)%GROUP_COLORS.length]:"#38BDF8";
+    const poly=`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`;
+    let handles="";
+    p.forEach((pt,i)=>{handles+=`<div class="h" data-handle="corner" data-idx="${i}" style="left:${pt.x}%;top:${pt.y}%"></div>`});
+    for(let i=0;i<4;i++){
+      const a=p[i],b=p[(i+1)%4];
+      handles+=`<div class="h edge" data-handle="edge" data-idx="${i}" style="left:${(a.x+b.x)/2}%;top:${(a.y+b.y)/2}%"></div>`;
+    }
+    el.innerHTML=`<svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      <polygon points="${poly}" fill="${gc}14" stroke="${gc}" stroke-width="0.6" vector-effect="non-scaling-stroke" style="stroke-width:2px"/></svg>
+      ${q.group?`<span class="stitch-badge" style="left:${Math.min(...p.map(x=>x.x))}%;top:${Math.min(...p.map(x=>x.y))}%;position:absolute">拼接 ${q.group}</span>`:""}
+      ${handles}`;
+    wrap.appendChild(el);
+    const c=quadCenter(q);
+    const menu=document.createElement("div");
+    menu.className="quad-menu";
+    menu.style.cssText=`left:${c.x}%;top:${Math.min(...p.map(x=>x.y))}%;transform:translate(-50%,-130%)`;
+    menu.innerHTML=state.work.stitchMode
+      ?`<button class="qm-stitch ${w.stitchGroup.includes(qi)?"grouping":""}" data-st="${qi}">${w.stitchGroup.includes(qi)?ICONS.check:ICONS.stitch} ${w.stitchGroup.includes(qi)?"已选":"拼接"}</button>
+        <button class="qm-cancel" data-stc="1">取消</button>`
+      :`<button class="qm-extract" data-ex="${qi}">${ICONS.cut} 提取</button>
+        <button class="qm-stitch" data-stm="${qi}">${ICONS.stitch} 拼接</button>
+        <button class="qm-del" data-qd="${qi}">×</button>`;
+    wrap.appendChild(menu);
+  });
+  $$(".quad-menu [data-ex]").forEach(b=>b.onclick=e=>{e.stopPropagation();extractQuads([+b.dataset.ex])});
+  $$(".quad-menu [data-qd]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    w.quads.splice(+b.dataset.qd,1);
+    drawQuads(wrap);updateExtractBtn();
+  });
+  $$(".quad-menu [data-stm]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    w.stitchMode=true;w.stitchGroup=[+b.dataset.stm];
+    drawQuads(wrap);renderImportToolbar();
+  });
+  $$(".quad-menu [data-st]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const i=+b.dataset.st;
+    const at=w.stitchGroup.indexOf(i);
+    if(at>-1){w.stitchGroup.splice(at,1)}else w.stitchGroup.push(i);
+    if(w.stitchGroup.length<1)w.stitchGroup.push(i);
+    drawQuads(wrap);renderImportToolbar();
+  });
+  $$(".quad-menu [data-stc]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    w.stitchMode=false;w.stitchGroup=[];
+    drawQuads(wrap);renderImportToolbar();
+  });
+}
+function renderImportToolbar(){
+  const w=state.work;
+  const old=$("#stitchDone");if(old)old.remove();
+  if(w.stitchMode){
+    const tb=$(".viewer-toolbar");
+    if(tb){
+      const btn=document.createElement("span");
+      btn.className="btn btn-sm";btn.id="stitchDone";
+      btn.style.cssText="background:#7C3AED;color:#fff";
+      btn.textContent=`完成拼接 (${w.stitchGroup.length})`;
+      btn.onclick=()=>finishStitch();
+      tb.insertBefore(btn,tb.lastElementChild);
+    }
+  }
+}
+function finishStitch(){
+  const w=state.work;
+  if(w.stitchGroup.length>=2){
+    const gid=(Math.max(0,...w.quads.map(q=>q.group||0)))+1;
+    w.stitchGroup.forEach(i=>{if(w.quads[i])w.quads[i].group=gid});
+    toast(`已标记 ${w.stitchGroup.length} 个选区为拼接组 ${gid}`,"ok");
+  }else if(w.stitchGroup.length===1){
+    toast("拼接至少需要选择 2 个选区","err");
+  }
+  w.stitchMode=false;w.stitchGroup=[];
+  const wrap=$("#viewerWrap");
+  if(wrap)drawQuads(wrap);
+  renderImportToolbar();
+}
+
+/* ============================================================
+ * 透视裁剪（单应性变换）+ 扫描增强
+ * ============================================================ */
+function solveHomography(srcPts,dstPts){
+  // 解 8x8 线性方程组：dst -> src 的映射
+  const A=[],B=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=[dstPts[i].x,dstPts[i].y],[X,Y]=[srcPts[i].x,srcPts[i].y];
+    A.push([x,y,1,0,0,0,-x*X,-y*X]);B.push(X);
+    A.push([0,0,0,x,y,1,-x*Y,-y*Y]);B.push(Y);
+  }
+  const n=8;
+  for(let col=0;col<n;col++){
+    let piv=col;
+    for(let r=col+1;r<n;r++)if(Math.abs(A[r][col])>Math.abs(A[piv][col]))piv=r;
+    [A[col],A[piv]]=[A[piv],A[col]];[B[col],B[piv]]=[B[piv],B[col]];
+    if(Math.abs(A[col][col])<1e-12)return null;
+    for(let r=0;r<n;r++){
+      if(r===col)continue;
+      const f=A[r][col]/A[col][col];
+      for(let c=col;c<n;c++)A[r][c]-=f*A[col][c];
+      B[r]-=f*B[col];
+    }
+  }
+  const h=B.map((b,i)=>b/A[i][i]);
+  return [h[0],h[1],h[2],h[3],h[4],h[5],h[6],h[7]];
+}
+function warpPerspective(img,srcQuad,outW,outH){
+  const c=document.createElement("canvas");
+  c.width=outW;c.height=outH;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0);
+  const srcData=ctx.getImageData(0,0,img.width,img.height);
+  const out=ctx.createImageData(outW,outH);
+  const dstPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+  const H=solveHomography(srcQuad,dstPts);
+  const sw=img.width,sh=img.height,d=srcData.data,o=out.data;
+  if(!H){
+    // 降级：包围盒裁剪
+    const xs=srcQuad.map(p=>p.x),ys=srcQuad.map(p=>p.y);
+    const x0=Math.max(0,Math.min(...xs)),y0=Math.max(0,Math.min(...ys));
+    const x1=Math.min(sw,Math.max(...xs)),y1=Math.min(sh,Math.max(...ys));
+    const c2=document.createElement("canvas");
+    c2.width=Math.max(2,x1-x0);c2.height=Math.max(2,y1-y0);
+    c2.getContext("2d").drawImage(img,x0,y0,c2.width,c2.height,0,0,c2.width,c2.height);
+    return c2;
+  }
+  const [h1,h2,h3,h4,h5,h6,h7,h8]=H;
+  for(let y=0;y<outH;y++){
+    for(let x=0;x<outW;x++){
+      const den=h7*x+h8*y+1;
+      const sx=(h1*x+h2*y+h3)/den;
+      const sy=(h4*x+h5*y+h6)/den;
+      const oi=(y*outW+x)*4;
+      if(sx<0||sy<0||sx>sw-1||sy>sh-1){o[oi+3]=0;continue}
+      const x0=Math.floor(sx),y0=Math.floor(sy);
+      const fx=sx-x0,fy=sy-y0;
+      const i00=(y0*sw+x0)*4,i10=i00+4,i01=i00+sw*4,i11=i01+4;
+      for(let ch=0;ch<3;ch++){
+        const v=(d[i00+ch]*(1-fx)+d[i10+ch]*fx)*(1-fy)+(d[i01+ch]*(1-fx)+d[i11+ch]*fx)*fy;
+        o[oi+ch]=v;
+      }
+      o[oi+3]=255;
+    }
+  }
+  const c3=document.createElement("canvas");
+  c3.width=outW;c3.height=outH;
+  c3.getContext("2d").putImageData(out,0,0);
+  return c3;
+}
+function enhanceImage(canvas){
+  // 扫描仪式增强：估计光照背景 -> 归一化去阴影 -> 提对比
+  const ctx=canvas.getContext("2d");
+  const w=canvas.width,h=canvas.height;
+  const img=ctx.getImageData(0,0,w,h);
+  const d=img.data;
+  // 1) 低分辨率背景光照估计（16x16 网格）
+  const GN=16;
+  const grid=new Float32Array(GN*GN*3);
+  const cnt=new Float32Array(GN*GN);
+  const stepX=w/GN,stepY=h/GN;
+  for(let y=0;y<h;y+=Math.max(1,Math.floor(h/64))){
+    for(let x=0;x<w;x+=Math.max(1,Math.floor(w/64))){
+      const gi=Math.min(GN-1,Math.floor(y/stepY))*GN+Math.min(GN-1,Math.floor(x/stepX));
+      const i=(y*w+x)*4;
+      grid[gi*3]+=d[i];grid[gi*3+1]+=d[i+1];grid[gi*3+2]+=d[i+2];cnt[gi]++;
+    }
+  }
+  for(let i=0;i<GN*GN;i++){
+    if(cnt[i]>0){grid[i*3]/=cnt[i];grid[i*3+1]/=cnt[i];grid[i*3+2]/=cnt[i]}
+    else{grid[i*3]=grid[i*3+1]=grid[i*3+2]=255}
+  }
+  const bgAt=(x,y)=>{
+    const gx=Math.min(GN-1.001,x/w*GN),gy=Math.min(GN-1.001,y/h*GN);
+    const x0=Math.floor(gx),y0=Math.floor(gy);
+    const x1=Math.min(GN-1,x0+1),y1=Math.min(GN-1,y0+1);
+    const fx=gx-x0,fy=gy-y0;
+    const out=[0,0,0];
+    for(let ch=0;ch<3;ch++){
+      const g00=grid[(y0*GN+x0)*3+ch],g10=grid[(y0*GN+x1)*3+ch];
+      const g01=grid[(y1*GN+x0)*3+ch],g11=grid[(y1*GN+x1)*3+ch];
+      out[ch]=(g00*(1-fx)+g10*fx)*(1-fy)+(g01*(1-fx)+g11*fx)*fy;
+    }
+    return out;
+  };
+  // 2) 归一化 + S 曲线对比
+  for(let y=0;y<h;y++){
+    const bg=bgAt(0,y);
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const b=bgAt(x,y);
+      for(let ch=0;ch<3;ch++){
+        let v=d[i+ch]/Math.max(50,b[ch])*255;
+        v=(v-128)*1.18+128;          // 对比度
+        v=v<120?v*0.82:v;             // 加深字迹
+        d[i+ch]=Math.max(0,Math.min(255,v));
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return canvas;
+}
+function quadEdgeLengths(q,img){
+  const dist=(a,b)=>Math.hypot((a.x-b.x)*img.width/100,(a.y-b.y)*img.height/100);
+  const top=dist(q.pts[0],q.pts[1]),bottom=dist(q.pts[3],q.pts[2]);
+  const left=dist(q.pts[0],q.pts[3]),right=dist(q.pts[1],q.pts[2]);
+  return {w:Math.round(Math.max(top,bottom)),h:Math.round(Math.max(left,right))};
+}
+async function extractQuads(indexes){
+  const w=state.work;
+  const page=w.pages[w.cur];if(!page)return;
+  const img=new Image();
+  await new Promise(res=>{img.onload=res;img.src=page.src});
+  let added=0;
+  for(const i of indexes){
+    const q=w.quads[i];if(!q)continue;
+    const srcPts=q.pts.map(p=>({x:p.x*img.width/100,y:p.y*img.height/100}));
+    const size=quadEdgeLengths(q,img);
+    const outW=Math.max(40,Math.min(2400,size.w));
+    const outH=Math.max(40,Math.min(3200,Math.round(outW*size.h/Math.max(1,size.w))));
+    let cropped=warpPerspective(img,srcPts,outW,outH);
+    if(state.settings.enhance!==false)cropped=enhanceImage(cropped);
+    const full=cropped.toDataURL("image/jpeg",0.88);
+    const tc=document.createElement("canvas");
+    const ts=120/Math.max(cropped.width,cropped.height);
+    tc.width=cropped.width*ts;tc.height=cropped.height*ts;
+    tc.getContext("2d").drawImage(cropped,0,0,tc.width,tc.height);
+    enqueueParse(full,tc.toDataURL("image/jpeg",0.7));
+    added++;
+  }
+  return added;
+}
+async function extractAll(){
+  const w=state.work;
+  if(!w.quads.length){toast("请先框选题目区域","err");return}
+  toast("正在裁剪与增强…");
+  // 按拼接组分组：同组竖直拼接为一张
+  const groups=new Map();
+  const singles=[];
+  w.quads.forEach((q,i)=>{
+    if(q.group)groups.set(q.group,[...(groups.get(q.group)||[]),i]);
+    else singles.push(i);
+  });
+  let added=0;
+  for(const idx of singles){
+    added+=await extractQuads([idx]);
+  }
+  for(const [,members] of groups){
+    members.sort((a,b)=>{
+      const ca=quadCenter(w.quads[a]),cb=quadCenter(w.quads[b]);
+      return ca.y-cb.y||ca.x-cb.x;
+    });
+    const canvases=[];
+    const img=new Image();
+    await new Promise(res=>{img.onload=res;img.src=w.pages[w.cur].src});
+    for(const i of members){
+      const q=w.quads[i];
+      const srcPts=q.pts.map(p=>({x:p.x*img.width/100,y:p.y*img.height/100}));
+      const size=quadEdgeLengths(q,img);
+      const outW=Math.max(40,Math.min(2400,size.w));
+      const outH=Math.max(40,Math.min(3200,Math.round(outW*size.h/Math.max(1,size.w))));
+      let c=warpPerspective(img,srcPts,outW,outH);
+      if(state.settings.enhance!==false)c=enhanceImage(c);
+      canvases.push(c);
+    }
+    const W=Math.max(...canvases.map(c=>c.width));
+    const gap=14;
+    const H=canvases.reduce((s,c)=>s+c.height,0)+gap*(canvases.length-1);
+    const stitched=document.createElement("canvas");
+    stitched.width=W;stitched.height=H;
+    const sctx=stitched.getContext("2d");
+    sctx.fillStyle="#fff";sctx.fillRect(0,0,W,H);
+    let yy=0;
+    for(const c of canvases){sctx.drawImage(c,0,yy);yy+=c.height+gap}
+    const full=stitched.toDataURL("image/jpeg",0.88);
+    const tc=document.createElement("canvas");
+    const ts=120/Math.max(stitched.width,stitched.height);
+    tc.width=stitched.width*ts;tc.height=stitched.height*ts;
+    tc.getContext("2d").drawImage(stitched,0,0,tc.width,tc.height);
+    enqueueParse(full,tc.toDataURL("image/jpeg",0.7));
+    added++;
+  }
+  w.quads=[];w.stitchGroup=[];w.stitchMode=false;
+  const wrap=$("#viewerWrap");if(wrap)drawQuads(wrap);
+  updateExtractBtn();
+  toast(`已提取 ${added} 道题进入解析队列`,"ok");
+  renderNav();
+}
+
+/* ============================================================
+ * 文件处理（图片 / PDF / 粘贴）
+ * ============================================================ */
+async function handleFiles(files){
+  const arr=[...files];if(!arr.length)return;
+  let n=0;
+  for(const f of arr){
+    if(f.type.startsWith("image/")){addPage(await fileToDataURL(f));n++}
+    else if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
+      const pages=await pdfToImages(f);
+      pages.forEach(p=>addPage(p));n+=pages.length;
+    }else toast(`不支持的文件：${f.name}`,"err");
+  }
+  if(n){
+    toast(`已导入 ${n} 页`,"ok");
+    if(state.route==="import")renderImport($("#view"));
+  }
+}
+function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+async function pdfToImages(file){
+  try{
+    if(window.pdfjsLib){
+      pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+      const out=[];
+      for(let i=1;i<=Math.min(pdf.numPages,20);i++){
+        const page=await pdf.getPage(i);
+        const vp=page.getViewport({scale:1.8});
+        const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
+        await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+        out.push(c.toDataURL("image/jpeg",0.88));
+      }
+      return out;
+    }
+    toast("PDF 组件未加载，请检查网络","err");return [];
+  }catch(e){toast("PDF 解析失败："+e.message,"err");return []}
+}
+function addPage(src,thumb){
+  state.work.pages.push({src,thumb:thumb||src});
+  state.work.cur=state.work.pages.length-1;
+  if(!thumb){
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement("canvas");
+      const s=160/Math.max(img.width,img.height);
+      c.width=img.width*s;c.height=img.height*s;
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      const target=state.work.pages.find(p=>p.src===src);
+      if(target)target.thumb=c.toDataURL("image/jpeg",0.6);
+      if(state.route==="import"&&$("#thumbStrip"))renderImport($("#view"));
+    };
+    img.src=src;
+  }
+}
+document.addEventListener("paste",e=>{
+  if(state.route!=="import")return;
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+  const files=[...(e.clipboardData?.items||[])].filter(i=>i.type.startsWith("image/")).map(i=>i.getAsFile()).filter(Boolean);
+  if(files.length){handleFiles(files);toast("已从剪贴板粘贴","ok")}
+});
+$("#fileInput").addEventListener("change",e=>{handleFiles(e.target.files);e.target.value=""});
+
+/* ============================================================
+ * AI 解析队列
+ * ============================================================ */
+function enqueueParse(image,thumb){
+  state.queue.push({id:uid(),image,thumb,status:"wait",mistakeId:null,error:""});
+  processQueue();
+}
+let parsing=false;
+async function processQueue(){
+  if(parsing)return;
+  const next=state.queue.find(q=>q.status==="wait");
+  if(!next){parsing=false;renderQueue();return}
+  parsing=true;next.status="doing";renderQueue();
+  try{
+    const result=await parseCrop(next.image);
+    const m={
+      id:uid(),subject:result.subject||state.settings.defaultSubject||"其他",
+      topic:"",knowledge:result.knowledge||"",question:result.question||"",
+      answer:result.answer||"",analysis:result.analysis||"",
+      image:next.image,errorCount:1,mastered:false,
+      createdAt:Date.now(),updatedAt:Date.now(),parsedBy:result.by||"manual"
+    };
+    await DB.put("mistakes",m);
+    cloud.pushMistake(m);
+    next.status="done";next.mistakeId=m.id;
+    toast("解析完成，已存入错题库","ok");
+  }catch(e){
+    next.status="fail";next.error=e.message||"解析失败";
+    toast("题目解析失败："+next.error,"err");
+  }
+  parsing=false;
+  await loadAll();renderQueue();renderNav();
+}
+function renderQueue(){
+  const list=$("#queueList");if(!list)return;
+  if(!state.queue.length){
+    list.innerHTML=`<div class="empty" style="padding:30px"><div class="empty-title">解析队列为空</div>提取选区后会加入这里</div>`;
+    return;
+  }
+  list.innerHTML=[...state.queue].reverse().map(q=>`
+    <div class="queue-item">
+      <img class="queue-thumb" src="${q.thumb}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:700">${q.status==="done"?"已存入错题库":q.status==="fail"?esc(q.error):q.status==="doing"?"正在解析…":"等待中"}</div>
+        ${q.status==="done"?`<a href="javascript:void(0)" data-view="${q.mistakeId}" style="font-size:12px">查看 →</a>`:""}
+      </div>
+      <span class="queue-status st-${q.status==="wait"?"wait":q.status==="doing"?"doing":q.status==="done"?"done":"fail"}">
+        ${q.status==="wait"?"等待中":q.status==="doing"?"解析中":q.status==="done"?"已完成":"失败"}</span>
+    </div>`).join("");
+  $$("[data-view]").forEach(a=>a.onclick=()=>{loadAll().then(()=>openDetail(a.dataset.view))});
+}
+async function parseCrop(imageDataUrl){
+  const s=state.settings;
+  if(s.apiUrl&&s.apiKey)return parseViaAPI(imageDataUrl,s);
+  await new Promise(r=>setTimeout(r,700+Math.random()*700));
+  return {subject:state.settings.defaultSubject||"数学",knowledge:"",question:"",answer:"",analysis:"",by:"manual"};
+}
+async function parseViaAPI(imageDataUrl,s){
+  const body={
+    model:s.apiModel||"gpt-4o-mini",
+    messages:[
+      {role:"system",content:"你是错题整理助手。观察题目图片，输出 JSON（不要 markdown 代码块），字段：subject(学科，限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)、knowledge(知识点，简短)、question(完整题干，数学公式用 LaTeX 写在 $ 中)、answer(正确答案)、analysis(分步解析，简洁清晰)。"},
+      {role:"user",content:[
+        {type:"text",text:"请解析这道题并按要求输出 JSON。"},
+        {type:"image_url",image_url:{url:imageDataUrl}}
+      ]}
+    ],
+    max_tokens:1200
+  };
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),90000);
+  let resp;
+  try{
+    resp=await fetch(s.apiUrl,{
+      method:"POST",signal:ctrl.signal,
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+s.apiKey},
+      body:JSON.stringify(body)
+    });
+  }finally{clearTimeout(timer)}
+  if(!resp.ok)throw new Error("接口返回 "+resp.status);
+  const data=await resp.json();
+  let text=(data.choices?.[0]?.message?.content||"").replace(/^```json\s*/,"").replace(/```$/,"").trim();
+  const m=text.match(/\{[\s\S]*\}/);
+  if(!m)throw new Error("返回内容无法解析");
+  const j=JSON.parse(m[0]);
+  return {subject:SUBJECTS.includes(j.subject)?j.subject:"其他",
+    knowledge:j.knowledge||"",question:j.question||"",answer:j.answer||"",analysis:j.analysis||"",by:"api"};
+}
+
+/* ============================================================
+ * 错题库（列表式）
+ * ============================================================ */
+function renderLibrary(v){
+  const f=state.libFilter;
+  const subjects=["全部",...new Set(state.mistakes.map(m=>m.subject))];
+  let list=state.mistakes;
+  if(f.subject!=="全部")list=list.filter(m=>m.subject===f.subject);
+  if(f.status==="未掌握")list=list.filter(m=>!m.mastered);
+  if(f.status==="已掌握")list=list.filter(m=>m.mastered);
+  if(f.status==="高频错题")list=list.filter(m=>(m.errorCount||1)>=2);
+  if(f.kw){
+    const k=f.kw.toLowerCase();
+    list=list.filter(m=>(m.question+m.answer+m.analysis+m.knowledge+m.topic).toLowerCase().includes(k));
+  }
+  v.innerHTML=`
+  <div class="lib-toolbar">
+    <div class="search-box">${ICONS.search}<input class="input" id="libSearch" placeholder="搜索题干、答案、知识点…" value="${esc(f.kw)}"></div>
+    <div class="seg" id="statusSeg">
+      ${["全部","未掌握","已掌握","高频错题"].map(s=>`<button class="${f.status===s?"on":""}" data-s="${s}">${s}</button>`).join("")}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    ${subjects.map(s=>`<span class="chip ${f.subject===s?"on":""}" data-sub="${s}">${s==="全部"?"全部科目":s}</span>`).join("")}
+    <span style="margin-left:auto;font-size:12.5px;color:var(--ink3);align-self:center">共 ${list.length} 题</span>
+  </div>
+  ${list.length?list.map(m=>`
+    <div class="card m-row" data-id="${m.id}">
+      ${m.image?`<img class="m-row-img" src="${m.image}">`:`<div class="m-row-img none">${ICONS.image.replace('width="40" height="40"','width="26" height="26"')}</div>`}
+      <div class="m-row-body">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          ${subjTag(m.subject)}
+          ${m.knowledge?`<span class="tag" style="background:rgba(255,255,255,.75);color:var(--ink2)">${esc(m.knowledge)}</span>`:""}
+          ${m.mastered?`<span class="tag" style="background:var(--green-soft);color:#059669">已掌握</span>`:""}
+        </div>
+        <div class="m-row-q">${esc(m.question)||"<span style='color:var(--ink3)'>图片题（点击查看详情）</span>"}</div>
+        <div class="m-row-meta">
+          <span>${fmtDate(m.createdAt)}</span>
+          ${m.errorCount>1?`<span style="color:var(--red);font-weight:700">错 ${m.errorCount} 次</span>`:""}
+        </div>
+      </div>
+    </div>`).join("")
+  :`<div class="empty card">${ICONS.image}
+      <div class="empty-title">暂无错题</div>
+      <div style="margin:10px 0 18px">拍摄或导入试卷后即可在这里管理错题</div>
+      <span class="btn btn-primary" id="seedBtn">载入示例数据</span>
+    </div>`}`;
+  $("#libSearch").oninput=e=>{f.kw=e.target.value;renderLibrary(v)};
+  $$("#statusSeg button").forEach(b=>b.onclick=()=>{f.status=b.dataset.s;renderLibrary(v)});
+  $$("#view .chip[data-sub]").forEach(c=>c.onclick=()=>{f.subject=c.dataset.sub;renderLibrary(v)});
+  $$(".m-row").forEach(c=>c.onclick=()=>openDetail(c.dataset.id));
+  const seed=$("#seedBtn");if(seed)seed.onclick=seedData;
+}
+function openDetail(id){
+  const m=state.mistakes.find(x=>x.id===id);
+  if(!m)return;
+  openModal(`
+    <div class="modal-head">
+      ${subjTag(m.subject)}<h3>${esc(m.knowledge||m.topic||"错题详情")}</h3>
+      <button class="icon-btn" onclick="closeModal()">${ICONS.close}</button>
+    </div>
+    <div class="modal-body" id="detailBody">
+      ${m.image?`<img class="detail-img" src="${m.image}" style="margin-bottom:14px">`:""}
+      ${m.question?`<div class="section-block"><h4>题干</h4><div class="body mathjax">${esc(m.question)}</div></div>`:""}
+      ${m.answer?`<div class="section-block" style="background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.25)">
+        <h4 style="color:#059669">正确答案</h4><div class="body mathjax">${esc(m.answer)}</div></div>`:""}
+      ${m.analysis?`<div class="section-block"><h4>解析</h4><div class="body mathjax">${esc(m.analysis)}</div></div>`:""}
+      <div style="display:flex;gap:14px;font-size:12.5px;color:var(--ink3);margin-top:4px;flex-wrap:wrap">
+        <span>录入：${fmtDT(m.createdAt)}</span>
+        <span>错误次数：${m.errorCount}</span>
+        <span>状态：${m.mastered?"已掌握":"未掌握"}</span>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-danger btn-sm" id="dDel">${ICONS.trash} 删除</button>
+        <button class="btn btn-ghost btn-sm" id="dAgain">又错了 +1</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="dMaster">${m.mastered?"取消掌握":"标为掌握"}</button>
+        <button class="btn btn-primary btn-sm" id="dEdit">${ICONS.edit} 编辑</button>
+      </div>
+    </div>`,true);
+  renderMath($("#detailBody"));
+  $("#dDel").onclick=async()=>{
+    if(!confirm("确定删除这道错题吗？"))return;
+    await removeMistake(id);closeModal();toast("已删除","ok");renderView();
+  };
+  $("#dAgain").onclick=async()=>{m.errorCount++;await saveMistake(m);toast("错误次数 +1");closeModal();renderView()};
+  $("#dMaster").onclick=async()=>{m.mastered=!m.mastered;await saveMistake(m);closeModal();toast(m.mastered?"已标为掌握":"已取消掌握","ok");renderView()};
+  $("#dEdit").onclick=()=>openEdit(m);
+}
+function openEdit(m){
+  openModal(`
+    <div class="modal-head"><h3>编辑错题</h3><button class="icon-btn" onclick="closeModal()">${ICONS.close}</button></div>
+    <div class="modal-body">
+      ${m.image?`<img class="detail-img" src="${m.image}" style="margin-bottom:14px;max-height:200px">`:""}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+        <div class="field"><label>科目</label><select class="select" id="eSubject">
+          ${SUBJECTS.map(s=>`<option ${m.subject===s?"selected":""}>${s}</option>`).join("")}</select></div>
+        <div class="field"><label>知识点</label><input class="input" id="eKp" value="${esc(m.knowledge)}" placeholder="如：三角函数"></div>
+      </div>
+      <div class="field"><label>题干</label><textarea class="textarea" id="eQ" rows="3" placeholder="题目内容，公式可用 $...$ 包裹">${esc(m.question)}</textarea></div>
+      <div class="field"><label>正确答案</label><textarea class="textarea" id="eA" rows="2">${esc(m.answer)}</textarea></div>
+      <div class="field"><label>解析</label><textarea class="textarea" id="eAn" rows="4">${esc(m.analysis)}</textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="eSave">保存</button>
+    </div>`,true);
+  $("#eSave").onclick=async()=>{
+    m.subject=$("#eSubject").value;m.knowledge=$("#eKp").value.trim();
+    m.question=$("#eQ").value.trim();m.answer=$("#eA").value.trim();m.analysis=$("#eAn").value.trim();
+    await saveMistake(m);closeModal();toast("已保存","ok");renderView();
+  };
+}
+async function seedData(){
+  const samples=[
+    {subject:"数学",knowledge:"三角函数",question:"已知 $\\sin(\\alpha + \\frac{\\pi}{6}) = \\frac{1}{3}$，求 $\\cos(2\\alpha + \\frac{\\pi}{3})$ 的值。",
+     answer:"$\\dfrac{7}{9}$",analysis:"令 $t=\\alpha+\\dfrac{\\pi}{6}$，则 $\\cos 2t=1-2\\sin^2 t=1-\\dfrac{2}{9}=\\dfrac{7}{9}$。",errorCount:2},
+    {subject:"物理",knowledge:"牛顿运动定律",question:"质量为 m 的物体放在倾角为 θ 的斜面上恰好匀速下滑，求动摩擦因数 μ。",
+     answer:"μ = tanθ",analysis:"沿斜面受力平衡：$mg\\sin\\theta=\\mu mg\\cos\\theta$，解得 $\\mu=\\tan\\theta$。",errorCount:1},
+    {subject:"英语",knowledge:"定语从句",question:"The book ______ I borrowed from the library is very interesting.",
+     answer:"that / which",analysis:"先行词为物，从句中作宾语，用 that 或 which。",errorCount:3},
+    {subject:"数学",knowledge:"导数与单调性",question:"求函数 $f(x)=x^3-3x$ 的单调递减区间。",
+     answer:"$(-1,1)$",analysis:"$f'(x)=3x^2-3<0$，得 $-1<x<1$。",errorCount:1},
+    {subject:"化学",knowledge:"氧化还原反应",question:"配平：Fe₂O₃ + CO → Fe + CO₂（高温）",
+     answer:"Fe₂O₃ + 3CO = 2Fe + 3CO₂",analysis:"Fe 得 6e⁻，每个 CO 失 2e⁻，故 CO 配 3。",errorCount:2}
+  ];
+  for(const s of samples){
+    const m={id:uid(),topic:"",image:"",mastered:false,parsedBy:"sample",
+      createdAt:Date.now()-Math.floor(Math.random()*6)*864e5,updatedAt:Date.now(),...s};
+    await DB.put("mistakes",m);cloud.pushMistake(m);
+  }
+  await loadAll();toast("已载入 5 条示例数据","ok");renderView();renderNav();
+}
+
+/* ============================================================
+ * 组卷（抽题条件 + 随机 / 手动 + 创建试卷）
+ * ============================================================ */
+function condPool(){
+  const c=state.composeCond;
+  let pool=state.mistakes.slice();
+  if(c.mastered==="未掌握")pool=pool.filter(m=>!m.mastered);
+  if(c.mastered==="已掌握")pool=pool.filter(m=>m.mastered);
+  if(c.subject!=="全部")pool=pool.filter(m=>m.subject===c.subject);
+  if(c.errMin==="≥2次")pool=pool.filter(m=>(m.errorCount||1)>=2);
+  if(c.errMin==="≥3次")pool=pool.filter(m=>(m.errorCount||1)>=3);
+  if(c.kp.trim()){
+    const k=c.kp.trim().toLowerCase();
+    pool=pool.filter(m=>(m.knowledge||"").toLowerCase().includes(k));
+  }
+  if(c.range!=="全部"){
+    const days={"近7天":7,"近1月":30,"近3月":90,"近6月":180}[c.range];
+    if(days)pool=pool.filter(m=>m.createdAt>=Date.now()-days*864e5);
+  }
+  return pool;
+}
+function renderCompose(v){
+  const c=state.composeCond;
+  const pool=condPool();
+  v.innerHTML=`
+  <div class="card compose-cond" style="margin-bottom:14px">
+    <div style="font-size:15px;font-weight:800;margin-bottom:14px">抽题条件设置</div>
+    <div class="field"><label>考点 / 知识点</label>
+      <input class="input" id="condKp" value="${esc(c.kp)}" placeholder="搜索考点…"></div>
+    <div class="cond-row">
+      <div class="field"><label>目标学科</label>
+        <select class="select" id="condSub">
+          ${["全部",...SUBJECTS].map(s=>`<option ${c.subject===s?"selected":""}>${s}</option>`).join("")}
+        </select></div>
+      <div class="field"><label>错误次数</label>
+        <select class="select" id="condErr">
+          ${["全部","≥2次","≥3次"].map(s=>`<option ${c.errMin===s?"selected":""}>${s}</option>`).join("")}
+        </select></div>
+    </div>
+    <div class="field"><label>抽题时间范围</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${["全部","近7天","近1月","近3月","近6月"].map(r=>`<span class="chip ${c.range===r?"on":""}" data-range="${r}">${r}</span>`).join("")}
+      </div></div>
+    <div class="field" style="margin-bottom:0"><label>掌握状态</label>
+      <div class="seg" id="condMastered">
+        ${["未掌握","已掌握","全部"].map(s=>`<button class="${c.mastered===s?"on":""}" data-m="${s}">${s}</button>`).join("")}
+      </div></div>
+  </div>
+  <button class="big-action" id="randomCompose">
+    <div class="ba-icon" style="background:var(--accent-soft);color:var(--accent-deep)">${ICONS.shuffle}</div>
+    <div><div class="ba-title">随机组卷</div><div class="ba-sub">按条件自动抽题（当前符合 ${pool.length} 题）</div></div>
+  </button>
+  <button class="big-action" id="manualCompose">
+    <div class="ba-icon" style="background:var(--amber-soft);color:#B45309">${ICONS.hand}</div>
+    <div><div class="ba-title">手动组卷</div><div class="ba-sub">逐题挑选，自由组合</div></div>
+  </button>
+  ${state.papers.length?`
+  <div class="card" style="margin-top:14px">
+    <div class="panel-title">已创建的试卷</div>
+    <div style="padding:6px 12px 14px">
+      ${state.papers.filter(p=>p.type==="compose").map(p=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(255,255,255,.6)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13.5px">${esc(p.name)}</div>
+            <div style="font-size:11.5px;color:var(--ink3)">${p.count} 题 · ${fmtDate(p.createdAt)}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" data-reopen="${p.id}">查看</button>
+          <button class="icon-btn" data-pdel="${p.id}">${ICONS.trash}</button>
+        </div>`).join("")}
+    </div>
+  </div>`:""}`;
+  $("#condKp").oninput=e=>{c.kp=e.target.value;renderCompose(v)};
+  $("#condSub").onchange=e=>{c.subject=e.target.value;renderCompose(v)};
+  $("#condErr").onchange=e=>{c.errMin=e.target.value;renderCompose(v)};
+  $$("[data-range]").forEach(ch=>ch.onclick=()=>{c.range=ch.dataset.range;renderCompose(v)});
+  $$("#condMastered button").forEach(b=>b.onclick=()=>{c.mastered=b.dataset.m;renderCompose(v)});
+  $("#randomCompose").onclick=()=>{
+    if(!pool.length){toast("当前条件下没有可抽的题目","err");return}
+    const shuffled=pool.slice().sort(()=>Math.random()-.5);
+    state.composeSel=new Set(shuffled.map(m=>m.id));
+    openPickList(pool,"随机组卷");
+  };
+  $("#manualCompose").onclick=()=>openPickList(pool,"手动组卷");
+  $$("[data-reopen]").forEach(b=>b.onclick=()=>{
+    const p=state.papers.find(x=>x.id===b.dataset.reopen);
+    if(!p)return;
+    state.composeSel=new Set((p.questions||[]).filter(id=>state.mistakes.some(m=>m.id===id)));
+    if(!state.composeSel.size){toast("卷中题目已不在错题库","err");return}
+    openPaperPreview(p.name);
+  });
+  $$("[data-pdel]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("删除这份试卷记录？"))return;
+    await removePaper(b.dataset.pdel);toast("已删除","ok");renderCompose(v);
+  });
+}
+function openPickList(pool,title){
+  state.composeSel=new Set([...state.composeSel].filter(id=>pool.some(m=>m.id===id)));
+  openModal(`
+    <div class="modal-head"><h3>${title} — 题目列表</h3><button class="icon-btn" onclick="closeModal()">${ICONS.close}</button></div>
+    <div class="modal-body" style="padding-top:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:700;color:#059669">${ICONS.check} 已选题目</span>
+        <span style="margin-left:auto;color:#B45309;font-weight:800" id="pickCount">${state.composeSel.size} 题</span>
+        <button class="btn btn-ghost btn-sm" id="pickAll">全选</button>
+        <button class="btn btn-ghost btn-sm" id="pickNone">清空</button>
+      </div>
+      <div>
+        ${pool.map(m=>`
+          <label class="q-pick">
+            <input type="checkbox" data-q="${m.id}" ${state.composeSel.has(m.id)?"checked":""}>
+            ${m.image?`<img src="${m.image}">`:`<div style="width:56px;height:56px;border-radius:9px;background:rgba(14,165,233,.08);flex:none"></div>`}
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">${subjTag(m.subject)}
+                ${(m.knowledge)?`<span style="font-size:11px;color:var(--ink3)">${esc(m.knowledge)}</span>`:""}
+                ${m.errorCount>1?`<span style="font-size:11px;color:var(--red);font-weight:800">错${m.errorCount}次</span>`:""}</div>
+              <div style="font-size:12.5px;color:var(--ink2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(m.question)||"图片题"}</div>
+            </div>
+          </label>`).join("")}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary btn-lg" id="confirmPick" style="flex:1" ${state.composeSel.size?"":"disabled"}>确认组卷（${state.composeSel.size} 题）</button>
+    </div>`,true);
+  const refresh=()=>{
+    $("#pickCount").textContent=state.composeSel.size+" 题";
+    const b=$("#confirmPick");
+    b.textContent=`确认组卷（${state.composeSel.size} 题）`;
+    b.disabled=!state.composeSel.size;
+  };
+  $$("input[data-q]").forEach(cb=>cb.onchange=()=>{
+    cb.checked?state.composeSel.add(cb.dataset.q):state.composeSel.delete(cb.dataset.q);
+    refresh();
+  });
+  $("#pickAll").onclick=()=>{pool.forEach(m=>state.composeSel.add(m.id));$$("input[data-q]").forEach(cb=>cb.checked=true);refresh()};
+  $("#pickNone").onclick=()=>{state.composeSel.clear();$$("input[data-q]").forEach(cb=>cb.checked=false);refresh()};
+  $("#confirmPick").onclick=()=>openCreatePaper();
+}
+function openCreatePaper(){
+  openModal(`
+    <div class="modal-head"><h3>创建试卷</h3><button class="icon-btn" onclick="closeModal()">${ICONS.close}</button></div>
+    <div class="modal-body">
+      <div class="field" style="margin-bottom:0"><label>试卷标题</label>
+        <input class="input" id="paperTitle" maxlength="100" placeholder="请输入试卷标题" value="错题复习卷 ${fmtDate(Date.now())}">
+        <div style="text-align:right;font-size:11px;color:var(--ink3);margin-top:4px" id="titleCount"></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="paperOk">确定</button>
+    </div>`);
+  const upd=()=>$("#titleCount").textContent=$("#paperTitle").value.length+"/100";
+  $("#paperTitle").oninput=upd;upd();
+  $("#paperOk").onclick=()=>{
+    const title=$("#paperTitle").value.trim()||"错题复习卷";
+    openPaperPreview(title,true);
+  };
+}
+function openPaperPreview(title,saveOnPrint=false){
+  const qs=[...state.composeSel].map(id=>state.mistakes.find(m=>m.id===id)).filter(Boolean);
+  if(!qs.length){toast("没有选中的题目","err");return}
+  const subjList=[...new Set(qs.map(q=>q.subject))].join("、");
+  openModal(`
+    <div class="modal-head">
+      <h3>试卷预览</h3>
+      <label style="font-size:12.5px;color:var(--ink2);display:flex;gap:6px;align-items:center;margin-right:6px">
+        <input type="checkbox" id="withAnswer" style="accent-color:var(--accent)"> 附答案</label>
+      <button class="btn btn-primary btn-sm" id="printBtn">${ICONS.print} 打印 / PDF</button>
+      <button class="icon-btn" onclick="closeModal()">${ICONS.close}</button>
+    </div>
+    <div class="modal-body" style="background:rgba(12,72,120,.08)">
+      <div class="paper-sheet mathjax" id="paperSheet">
+        <h2>${esc(title)}</h2>
+        <div class="paper-sub">简错题自动生成 · ${subjList} · 共 ${qs.length} 题</div>
+        <div class="paper-info">
+          <span>姓名：<b>＿＿＿＿＿＿</b></span>
+          <span>班级：<b>＿＿＿＿＿＿</b></span>
+          <span>日期：<b>${fmtDate(Date.now())}</b></span>
+        </div>
+        ${qs.map((q,i)=>`
+          <div class="paper-q">
+            <div class="q-title">${i+1}.（${q.subject}${q.knowledge?" · "+esc(q.knowledge):""}）</div>
+            ${q.image?`<img src="${q.image}">`:""}
+            ${q.question?`<div>${q.question.replace(/</g,"&lt;")}</div>`:""}
+            <div class="answer-area">答：</div>
+            <div class="paper-a q-ans" style="display:none">
+              <b>参考答案：</b>${esc(q.answer)||"—"}
+              ${q.analysis?`<br><b>解析：</b>${esc(q.analysis)}`:""}
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`,true);
+  renderMath($("#paperSheet"));
+  $("#withAnswer").onchange=()=>{
+    const on=$("#withAnswer").checked;
+    $$("#paperSheet .q-ans").forEach(el=>el.style.display=on?"block":"none");
+    $$("#paperSheet .answer-area").forEach(el=>el.style.display=on?"none":"block");
+  };
+  $("#printBtn").onclick=async()=>{
+    if(saveOnPrint){
+      const p={id:uid(),type:"compose",name:title,createdAt:Date.now(),
+        subjects:subjList,count:qs.length,questions:qs.map(q=>q.id)};
+      await savePaper(p);
+      toast("试卷已保存","ok");
+    }
+    window.print();
+  };
+}
+
+/* ============================================================
+ * 统计
+ * ============================================================ */
 function rangeStart(k){
   const now=new Date();
   if(k==="today"){const d=new Date(now);d.setHours(0,0,0,0);return d.getTime()}
@@ -524,8 +1668,6 @@ function rangeStart(k){
   if(k==="term"){const m=now.getMonth();return (m>=8||m<2)?new Date(now.getFullYear(),8,1).getTime():new Date(now.getFullYear(),1,1).getTime()}
   return 0;
 }
-
-/* ---------- 概览页 ---------- */
 function renderHome(v){
   const ms=state.mistakes;
   const inRange=ms.filter(m=>m.createdAt>=rangeStart(state.statRange));
@@ -586,706 +1728,16 @@ function renderHome(v){
           <span class="kp-rank ${i<3?"top":""}">${i+1}</span>
           <span style="flex:1;font-weight:700">${esc(k)}</span>
           <span style="font-size:12px;color:var(--ink3)">错 ${n} 次</span></div>`).join("")
-        :`<div class="empty" style="padding:26px"><div class="empty-title">暂无数据</div>解析错题并填写知识点后自动生成</div>`}
+        :`<div class="empty" style="padding:26px"><div class="empty-title">暂无数据</div>填写知识点后自动生成</div>`}
       </div>
     </div>
   </div>`;
   $$("#view .chip[data-r]").forEach(c=>c.onclick=()=>{state.statRange=c.dataset.r;renderHome(v)});
 }
 
-/* ---------- 错题提取工作台 ---------- */
-function renderImport(v){
-  const w=state.work;
-  const pending=state.queue.filter(q=>q.status==="wait"||q.status==="doing").length;
-  v.innerHTML=`
-  <div class="import-grid">
-    <div>
-      <div class="mode-seg">
-        <button class="btn btn-sm ${!w.burst?"btn-primary":"btn-ghost"}" id="modeImport">${ICONS.upload} 导入</button>
-        <button class="btn btn-sm ${w.burst?"burst-on":"btn-ghost"}" id="modeBurst">${ICONS.burst} 连拍模式</button>
-        <button class="btn btn-sm ${w.organize?"btn-primary":"btn-ghost"}" id="modeOrganize" ${w.pages.length?"":"disabled"}>${ICONS.papers} 页面组织</button>
-        <span style="margin-left:auto;align-self:center;font-size:12px;color:var(--ink3)">${w.pages.length?`共 ${w.pages.length} 页`:""}</span>
-      </div>
-      ${w.pages.length===0?`
-      <div class="dropzone" id="dropzone">
-        ${ICONS.camera}
-        <div class="dz-title">${w.burst?"点击下方按钮开始拍照":"点击或拖拽添加试卷照片 / PDF"}</div>
-        <div class="dz-sub">${w.burst
-          ?"连拍模式：拍一张立即导入，裁剪后自动弹出下一张拍摄"
-          :"支持多张图片与 PDF · 可直接 Ctrl+V 粘贴截图 · 推荐每次 1–5 页"}</div>
-        <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          ${w.burst?`<span class="btn btn-primary btn-lg burst-on">${ICONS.burst} 打开相机拍摄</span>`
-                   :`<span class="btn btn-primary">${ICONS.plus} 选择文件</span>`}
-        </div>
-      </div>`:w.organize?renderOrganizeHTML(w):`
-      <div class="card">
-        <div class="thumb-strip" id="thumbStrip">
-          ${w.pages.map((p,i)=>`<div class="thumb ${i===w.cur?"on":""}" data-i="${i}">
-            <img src="${p.thumb}" alt="第${i+1}页"><span class="thumb-page">${i+1}</span>
-            <span class="tdel" data-del="${i}">×</span></div>`).join("")}
-          <div class="thumb" id="addMore">
-            <div style="width:84px;height:110px;border:2px dashed rgba(14,165,233,.45);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--accent-deep);font-size:11px;gap:4px;background:rgba(255,255,255,.5)">${ICONS.plus}添加</div>
-          </div>
-        </div>
-        <div class="viewer-wrap" id="viewerWrap"><img id="viewerImg" src="${w.pages[w.cur]?.src||""}" alt="试卷预览"></div>
-        <div class="viewer-toolbar">
-          <span class="btn btn-ghost btn-sm" id="selFull">整页框选</span>
-          <span class="btn btn-ghost btn-sm" id="selClear">清空选区</span>
-          <span style="margin-left:auto;font-size:12px;color:var(--ink3)">可连续拖拽创建多个选区</span>
-          ${w.burst?`<span class="btn btn-ghost btn-sm burst-on" id="burstShot">${ICONS.burst} 继续拍摄</span>`:""}
-          <span class="btn btn-primary btn-sm" id="cropAdd">批量提取 (${w.selections.length})</span>
-        </div>
-      </div>`}
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="panel-title">解析队列 <span class="hint" id="queueHint">${pending?`${pending} 个进行中`:""}</span></div>
-        <div id="queueList"></div>
-      </div>
-      <div class="card" style="padding:16px">
-        <div style="font-size:13px;font-weight:800;margin-bottom:8px">使用步骤</div>
-        <ol style="font-size:12.5px;color:var(--ink2);padding-left:18px;line-height:2">
-          <li>导入试卷照片 / PDF，连拍模式可直接拍摄</li>
-          <li>在预览图上<b>连续拖拽多个框</b>，框住每道题</li>
-          <li>点「批量提取」，全部选区一次进入解析队列</li>
-          <li>AI 解析生成错题自动入库，可编辑完善</li>
-          <li>「页面组织」可旋转 / 删除 / 调整页面顺序</li>
-        </ol>
-      </div>
-    </div>
-  </div>`;
-  bindImport();renderQueue();
-}
-function renderOrganizeHTML(w){
-  return `<div class="card">
-    <div style="padding:12px 16px;font-size:13px;color:var(--ink3);border-bottom:1px solid rgba(255,255,255,.7)">
-      长按拖动可调整顺序的简易版：使用 ◀ ▶ 按钮排序</div>
-    <div class="org-grid">
-      ${w.pages.map((p,i)=>`<div class="org-card">
-        <span class="org-num">${i+1}</span>
-        <img src="${p.thumb}">
-        <div class="org-ops">
-          <button data-org="left" data-i="${i}" title="前移">${ICONS.left}</button>
-          <button data-org="rotate" data-i="${i}" title="旋转">${ICONS.rotate}</button>
-          <button data-org="del" data-i="${i}" title="删除">${ICONS.trash}</button>
-          <button data-org="right" data-i="${i}" title="后移">${ICONS.right}</button>
-        </div>
-      </div>`).join("")}
-    </div>
-  </div>`;
-}
-
-/* ---------- 导入交互 ---------- */
-function bindImport(){
-  const w=state.work;
-  const mi=$("#modeImport");if(mi)mi.onclick=()=>{w.burst=false;renderImport($("#view"))};
-  const mb=$("#modeBurst");if(mb)mb.onclick=()=>{w.burst=true;w.organize=false;renderImport($("#view"))};
-  const mo=$("#modeOrganize");if(mo)mo.onclick=()=>{w.organize=!w.organize;renderImport($("#view"))};
-  const dz=$("#dropzone");
-  if(dz){
-    dz.onclick=()=>w.burst?$("#cameraInput").click():$("#fileInput").click();
-    dz.ondragover=e=>{e.preventDefault();dz.classList.add("drag")};
-    dz.ondragleave=()=>dz.classList.remove("drag");
-    dz.ondrop=e=>{e.preventDefault();dz.classList.remove("drag");handleFiles(e.dataTransfer.files)};
-  }
-  const addMore=$("#addMore");if(addMore)addMore.onclick=()=>w.burst?$("#cameraInput").click():$("#fileInput").click();
-  const bs=$("#burstShot");if(bs)bs.onclick=()=>$("#cameraInput").click();
-  $$("#thumbStrip .thumb[data-i]").forEach(t=>t.onclick=e=>{
-    if(e.target.dataset.del!==undefined)return;
-    w.cur=+t.dataset.i;w.selections=[];renderImport($("#view"));
-  });
-  $$("#thumbStrip .tdel").forEach(d=>d.onclick=e=>{
-    e.stopPropagation();
-    w.pages.splice(+d.dataset.del,1);
-    w.cur=Math.max(0,Math.min(w.cur,w.pages.length-1));
-    w.selections=[];renderImport($("#view"));
-  });
-  $$(".org-ops button").forEach(b=>b.onclick=()=>orgAction(b.dataset.org,+b.dataset.i));
-  const wrap=$("#viewerWrap");
-  if(wrap){
-    initCrop(wrap);
-    $("#selFull").onclick=()=>{w.selections.push({x:2,y:2,w:96,h:96});drawSelections(wrap);updateCropBtn()};
-    $("#selClear").onclick=()=>{w.selections=[];drawSelections(wrap);updateCropBtn()};
-    $("#cropAdd").onclick=()=>cropSelections();
-  }
-}
-function orgAction(act,i){
-  const w=state.work;const p=w.pages;
-  if(act==="del"){p.splice(i,1)}
-  else if(act==="rotate"){rotatePage(p[i])}
-  else if(act==="left"&&i>0){[p[i-1],p[i]]=[p[i],p[i-1]]}
-  else if(act==="right"&&i<p.length-1){[p[i+1],p[i]]=[p[i],p[i+1]]}
-  w.cur=Math.max(0,Math.min(w.cur,p.length-1));
-  if(!p.length){w.organize=false}
-  renderImport($("#view"));
-}
-function rotatePage(page){
-  const img=new Image();
-  img.onload=()=>{
-    const c=document.createElement("canvas");
-    c.width=img.height;c.height=img.width;
-    const ctx=c.getContext("2d");
-    ctx.translate(c.width/2,c.height/2);ctx.rotate(Math.PI/2);
-    ctx.drawImage(img,-img.width/2,-img.height/2);
-    page.src=c.toDataURL("image/jpeg",0.88);page.thumb=page.src;
-    renderImport($("#view"));
-  };
-  img.src=page.src;
-}
-
-/* ---------- 多框选裁剪 ---------- */
-function updateCropBtn(){
-  const b=$("#cropAdd");
-  if(b)b.textContent=`批量提取 (${state.work.selections.length})`;
-}
-function initCrop(wrap){
-  drawSelections(wrap);
-  let drag=null;
-  const pos=e=>{
-    const r=wrap.getBoundingClientRect();
-    const t=e.touches?e.touches[0]:e;
-    return {x:(t.clientX-r.left)/r.width*100,y:(t.clientY-r.top)/r.height*100};
-  };
-  const startNew=e=>{
-    if(e.target.closest(".sel-box"))return;
-    e.preventDefault();
-    const p=pos(e);
-    const box={x:p.x,y:p.y,w:0,h:0};
-    state.work.selections.push(box);
-    drag={mode:"new",box,sx:p.x,sy:p.y,isNew:true};
-  };
-  const startBox=e=>{
-    const sb=e.target.closest(".sel-box");if(!sb)return;
-    if(e.target.classList.contains("sel-del"))return;
-    e.stopPropagation();e.preventDefault();
-    const b=state.work.selections[+sb.dataset.i];const p=pos(e);
-    drag={mode:e.target.classList.contains("sel-handle")?"resize":"move",box:b,sx:p.x,sy:p.y,ox:b.x,oy:b.y};
-  };
-  const move=e=>{
-    if(!drag)return;e.preventDefault();
-    const p=pos(e);
-    if(drag.mode==="new"){
-      drag.box.x=Math.max(0,Math.min(drag.sx,p.x));drag.box.y=Math.max(0,Math.min(drag.sy,p.y));
-      drag.box.w=Math.min(Math.abs(p.x-drag.sx),100-drag.box.x);drag.box.h=Math.min(Math.abs(p.y-drag.sy),100-drag.box.y);
-    }else if(drag.mode==="move"){
-      drag.box.x=Math.max(0,Math.min(100-drag.box.w,drag.ox+(p.x-drag.sx)));
-      drag.box.y=Math.max(0,Math.min(100-drag.box.h,drag.oy+(p.y-drag.sy)));
-    }else if(drag.mode==="resize"){
-      drag.box.w=Math.max(2,Math.min(100-drag.box.x,p.x-drag.box.x));
-      drag.box.h=Math.max(2,Math.min(100-drag.box.y,p.y-drag.box.y));
-    }
-    drawSelections(wrap);
-  };
-  const up=()=>{
-    if(drag&&drag.mode==="new"&&(drag.box.w<1.5||drag.box.h<1.5)){
-      const idx=state.work.selections.indexOf(drag.box);
-      if(idx>-1)state.work.selections.splice(idx,1);
-    }
-    drag=null;drawSelections(wrap);updateCropBtn();
-  };
-  wrap.addEventListener("mousedown",e=>{startBox(e);if(!drag)startNew(e)});
-  wrap.addEventListener("mousedown",startBox);
-  window.addEventListener("mousemove",move);window.addEventListener("mouseup",up);
-  wrap.addEventListener("touchstart",e=>{
-    if(e.target.closest(".sel-box"))startBox(e);else startNew(e);
-  },{passive:false});
-  wrap.addEventListener("touchmove",move,{passive:false});
-  wrap.addEventListener("touchend",up);
-}
-function drawSelections(wrap){
-  wrap.querySelectorAll(".sel-box").forEach(el=>el.remove());
-  state.work.selections.forEach((b,i)=>{
-    const el=document.createElement("div");
-    el.className="sel-box";el.dataset.i=i;
-    el.style.cssText=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
-    el.innerHTML=`<span class="sel-tag">选区 ${i+1}</span>
-      <span class="sel-del" data-di="${i}">×</span><span class="sel-handle"></span>`;
-    el.querySelector(".sel-del").addEventListener("mousedown",e=>e.stopPropagation());
-    el.querySelector(".sel-del").addEventListener("click",e=>{
-      e.stopPropagation();
-      state.work.selections.splice(i,1);
-      drawSelections(wrap);updateCropBtn();
-    });
-    wrap.appendChild(el);
-  });
-}
-async function cropSelections(){
-  const w=state.work;
-  if(!w.selections.length){toast("请先在预览图上拖拽框选题目","err");return}
-  const page=w.pages[w.cur];if(!page)return;
-  const img=new Image();
-  await new Promise(res=>{img.onload=res;img.src=page.src});
-  let added=0;
-  for(const b of w.selections){
-    const c=document.createElement("canvas");
-    c.width=Math.max(20,img.width*b.w/100);c.height=Math.max(20,img.height*b.h/100);
-    c.getContext("2d").drawImage(img,img.width*b.x/100,img.height*b.y/100,c.width,c.height,0,0,c.width,c.height);
-    const full=c.toDataURL("image/jpeg",0.88);
-    const tc=document.createElement("canvas");
-    const ts=120/Math.max(c.width,c.height);
-    tc.width=c.width*ts;tc.height=c.height*ts;
-    tc.getContext("2d").drawImage(c,0,0,tc.width,tc.height);
-    enqueueParse(full,tc.toDataURL("image/jpeg",0.7));
-    added++;
-  }
-  w.selections=[];
-  const wrap=$("#viewerWrap");if(wrap)drawSelections(wrap);
-  updateCropBtn();
-  toast(`已加入解析队列 ${added} 题`,"ok");
-  renderNav();
-  // 连拍模式：裁剪后自动进入下一张 / 继续拍摄
-  if(w.burst){
-    if(w.cur<w.pages.length-1){
-      w.cur++;renderImport($("#view"));
-      toast("连拍模式：已切换到下一页","ok");
-    }else{
-      setTimeout(()=>{
-        if(state.route==="import"&&state.work.burst){
-          $("#cameraInput").click();
-        }
-      },350);
-    }
-  }
-}
-
-/* ---------- 文件处理 ---------- */
-async function handleFiles(files){
-  const arr=[...files];if(!arr.length)return;
-  let n=0;
-  for(const f of arr){
-    if(f.type.startsWith("image/")){
-      addPage(await fileToDataURL(f));n++;
-    }else if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
-      const pages=await pdfToImages(f);
-      pages.forEach(addPage);n+=pages.length;
-    }else toast(`不支持的文件：${f.name}`,"err");
-  }
-  if(n){
-    toast(`已导入 ${n} 页`,"ok");
-    if(state.route==="import")renderImport($("#view"));
-  }
-}
-function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-async function pdfToImages(file){
-  try{
-    if(window.pdfjsLib){
-      pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-      const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
-      const out=[];
-      for(let i=1;i<=Math.min(pdf.numPages,20);i++){
-        const page=await pdf.getPage(i);
-        const vp=page.getViewport({scale:1.8});
-        const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
-        await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
-        out.push(c.toDataURL("image/jpeg",0.88));
-      }
-      return out;
-    }
-    toast("PDF 组件未加载，请检查网络后重试","err");return [];
-  }catch(e){toast("PDF 解析失败："+e.message,"err");return []}
-}
-function addPage(src){
-  state.work.pages.push({src,thumb:src});
-  state.work.cur=state.work.pages.length-1;
-  const img=new Image();
-  img.onload=()=>{
-    const c=document.createElement("canvas");
-    const s=160/Math.max(img.width,img.height);
-    c.width=img.width*s;c.height=img.height*s;
-    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
-    const target=state.work.pages.find(p=>p.src===src);
-    if(target)target.thumb=c.toDataURL("image/jpeg",0.6);
-    if(state.route==="import"&&$("#thumbStrip"))renderImport($("#view"));
-  };
-  img.src=src;
-}
-
-/* ---------- AI 解析队列 ---------- */
-function enqueueParse(image,thumb){
-  state.queue.push({id:uid(),image,thumb,status:"wait",mistakeId:null,error:""});
-  processQueue();
-}
-let parsing=false;
-async function processQueue(){
-  if(parsing)return;
-  const next=state.queue.find(q=>q.status==="wait");
-  if(!next){parsing=false;renderQueue();return}
-  parsing=true;next.status="doing";renderQueue();
-  try{
-    const result=await parseCrop(next.image);
-    const m={
-      id:uid(),subject:result.subject||state.settings.defaultSubject||"其他",
-      topic:"",knowledge:result.knowledge||"",question:result.question||"",
-      answer:result.answer||"",analysis:result.analysis||"",
-      image:next.image,errorCount:1,mastered:false,
-      createdAt:Date.now(),updatedAt:Date.now(),parsedBy:result.by||"demo"
-    };
-    await DB.put("mistakes",m);
-    cloud.pushMistake(m);
-    next.status="done";next.mistakeId=m.id;
-    toast("解析完成，已存入错题库","ok");
-  }catch(e){
-    next.status="fail";next.error=e.message||"解析失败";
-    toast("题目解析失败："+next.error,"err");
-  }
-  parsing=false;
-  await loadAll();renderQueue();renderNav();
-}
-function renderQueue(){
-  const list=$("#queueList");if(!list)return;
-  const hint=$("#queueHint");
-  const pending=state.queue.filter(q=>q.status==="wait"||q.status==="doing").length;
-  if(hint)hint.textContent=pending?`${pending} 个进行中`:state.queue.length?`已完成 ${state.queue.filter(q=>q.status==="done").length}`:"";
-  if(!state.queue.length){
-    list.innerHTML=`<div class="empty" style="padding:30px"><div class="empty-title">解析队列为空</div>框选题目后会自动加入这里</div>`;
-    return;
-  }
-  list.innerHTML=[...state.queue].reverse().map(q=>`
-    <div class="queue-item">
-      <img class="queue-thumb" src="${q.thumb}">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12.5px;font-weight:700">${q.status==="done"?"已存入错题库":q.status==="fail"?esc(q.error):q.status==="doing"?"正在解析…":"等待中"}</div>
-        ${q.status==="done"?`<a href="javascript:void(0)" data-view="${q.mistakeId}" style="font-size:12px">查看错题 →</a>`:""}
-      </div>
-      <span class="queue-status st-${q.status==="wait"?"wait":q.status==="doing"?"doing":q.status==="done"?"done":"fail"}">
-        ${q.status==="wait"?"等待中":q.status==="doing"?"解析中":q.status==="done"?"已完成":"失败"}</span>
-    </div>`).join("");
-  $$("[data-view]").forEach(a=>a.onclick=()=>{loadAll().then(()=>openDetail(a.dataset.view))});
-}
-async function parseCrop(imageDataUrl){
-  const s=state.settings;
-  if(s.apiUrl&&s.apiKey)return parseViaAPI(imageDataUrl,s);
-  await new Promise(r=>setTimeout(r,900+Math.random()*900));
-  return {
-    subject:state.settings.defaultSubject||"数学",knowledge:"",
-    question:"（AI 演示模式：此处为题干文本。配置 API 后可自动识别，也可以直接编辑补充。）",
-    answer:"（待补充正确答案）",
-    analysis:"（待补充解题步骤。在「设置」中配置 AI 接口即可自动解析图片题目。）",
-    by:"demo"
-  };
-}
-async function parseViaAPI(imageDataUrl,s){
-  const body={
-    model:s.apiModel||"gpt-4o-mini",
-    messages:[
-      {role:"system",content:"你是错题整理助手。观察题目图片，输出 JSON（不要 markdown 代码块），字段：subject(学科，限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)、knowledge(知识点，简短)、question(完整题干，数学公式用 LaTeX 写在 $ 中)、answer(正确答案)、analysis(分步解析，简洁清晰)。"},
-      {role:"user",content:[
-        {type:"text",text:"请解析这道题并按要求输出 JSON。"},
-        {type:"image_url",image_url:{url:imageDataUrl}}
-      ]}
-    ],
-    max_tokens:1200
-  };
-  const ctrl=new AbortController();
-  const timer=setTimeout(()=>ctrl.abort(),90000);
-  let resp;
-  try{
-    resp=await fetch(s.apiUrl,{
-      method:"POST",signal:ctrl.signal,
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+s.apiKey},
-      body:JSON.stringify(body)
-    });
-  }finally{clearTimeout(timer)}
-  if(!resp.ok)throw new Error("接口返回 "+resp.status);
-  const data=await resp.json();
-  let text=(data.choices?.[0]?.message?.content||"").replace(/^```json\s*/,"").replace(/```$/,"").trim();
-  const m=text.match(/\{[\s\S]*\}/);
-  if(!m)throw new Error("返回内容无法解析");
-  const j=JSON.parse(m[0]);
-  return {subject:SUBJECTS.includes(j.subject)?j.subject:"其他",
-    knowledge:j.knowledge||"",question:j.question||"",answer:j.answer||"",analysis:j.analysis||"",by:"api"};
-}
-
-/* ---------- 粘贴 / 文件输入 ---------- */
-document.addEventListener("paste",e=>{
-  if(state.route!=="import")return;
-  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
-  const files=[...(e.clipboardData?.items||[])].filter(i=>i.type.startsWith("image/")).map(i=>i.getAsFile()).filter(Boolean);
-  if(files.length){handleFiles(files);toast("已从剪贴板粘贴图片","ok")}
-});
-$("#fileInput").addEventListener("change",e=>{handleFiles(e.target.files);e.target.value=""});
-$("#cameraInput").addEventListener("change",e=>{
-  handleFiles(e.target.files);e.target.value="";
-});
-
-/* ---------- 错题库 ---------- */
-function renderLibrary(v){
-  const f=state.libFilter;
-  const subjects=["全部",...new Set(state.mistakes.map(m=>m.subject))];
-  let list=state.mistakes;
-  if(f.subject!=="全部")list=list.filter(m=>m.subject===f.subject);
-  if(f.status==="未掌握")list=list.filter(m=>!m.mastered);
-  if(f.status==="已掌握")list=list.filter(m=>m.mastered);
-  if(f.status==="高频错题")list=list.filter(m=>(m.errorCount||1)>=2);
-  if(f.kw){
-    const k=f.kw.toLowerCase();
-    list=list.filter(m=>(m.question+m.answer+m.analysis+m.knowledge+m.topic).toLowerCase().includes(k));
-  }
-  v.innerHTML=`
-  <div class="lib-toolbar">
-    <div class="search-box">${ICONS.search}<input class="input" id="libSearch" placeholder="搜索题干、答案、知识点…" value="${esc(f.kw)}"></div>
-    <div class="seg" id="statusSeg">
-      ${["全部","未掌握","已掌握","高频错题"].map(s=>`<button class="${f.status===s?"on":""}" data-s="${s}">${s}</button>`).join("")}
-    </div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    ${subjects.map(s=>`<span class="chip ${f.subject===s?"on":""}" data-sub="${s}">${s==="全部"?"全部科目":s}</span>`).join("")}
-    <span style="margin-left:auto;font-size:12.5px;color:var(--ink3);align-self:center">共 ${list.length} 题</span>
-  </div>
-  ${list.length?`<div class="lib-grid">${list.map(mCard).join("")}</div>`:`
-    <div class="empty card">${ICONS.image}
-      <div class="empty-title">暂无错题</div>
-      <div style="margin:10px 0 18px">去「错题提取」导入试卷，或先载入示例数据体验</div>
-      <span class="btn btn-primary" id="seedBtn">载入示例数据</span>
-    </div>`}`;
-  $("#libSearch").oninput=e=>{f.kw=e.target.value;renderLibrary(v)};
-  $$("#statusSeg button").forEach(b=>b.onclick=()=>{f.status=b.dataset.s;renderLibrary(v)});
-  $$("#view .chip[data-sub]").forEach(c=>c.onclick=()=>{f.subject=c.dataset.sub;renderLibrary(v)});
-  $$(".m-card").forEach(c=>c.onclick=()=>openDetail(c.dataset.id));
-  const seed=$("#seedBtn");if(seed)seed.onclick=seedData;
-}
-function mCard(m){
-  return `<div class="card m-card" data-id="${m.id}">
-    <div class="m-img">
-      ${m.image?`<img src="${m.image}" alt="题目图片">`:`<span class="noimg">${ICONS.image}无图片</span>`}
-      ${m.mastered?`<span class="mastered-ribbon">已掌握</span>`:""}
-    </div>
-    <div class="m-body">
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        ${subjTag(m.subject)}
-        ${m.knowledge?`<span class="tag" style="background:rgba(255,255,255,.7);color:var(--ink2)">${esc(m.knowledge)}</span>`:""}
-      </div>
-      <div class="m-q">${esc(m.question)||"<span style='color:var(--ink3)'>（图片题，暂无文本）</span>"}</div>
-      <div class="m-meta">
-        <span>${fmtDate(m.createdAt)}</span>
-        ${m.errorCount>1?`<span style="color:var(--red);font-weight:700">· 错 ${m.errorCount} 次</span>`:""}
-        ${m.parsedBy==="demo"?`<span>· 演示解析</span>`:""}
-      </div>
-    </div>
-  </div>`;
-}
-function openDetail(id){
-  const m=state.mistakes.find(x=>x.id===id);
-  if(!m)return;
-  openModal(`
-    <div class="modal-head">
-      ${subjTag(m.subject)}<h3>${esc(m.knowledge||m.topic||"错题详情")}</h3>
-      <button class="icon-btn" onclick="closeModal()">${ICONS.close}</button>
-    </div>
-    <div class="modal-body" id="detailBody">
-      ${m.image?`<img class="detail-img" src="${m.image}" style="margin-bottom:14px">`:""}
-      <div class="section-block"><h4>题干</h4><div class="body mathjax">${esc(m.question)||"—"}</div></div>
-      <div class="section-block" style="background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.25)">
-        <h4 style="color:#059669">正确答案</h4><div class="body mathjax">${esc(m.answer)||"—"}</div></div>
-      <div class="section-block"><h4>解析</h4><div class="body mathjax">${esc(m.analysis)||"—"}</div></div>
-      <div style="display:flex;gap:14px;font-size:12.5px;color:var(--ink3);margin-top:4px;flex-wrap:wrap">
-        <span>录入：${fmtDT(m.createdAt)}</span>
-        <span>错误次数：${m.errorCount}</span>
-        <span>状态：${m.mastered?"已掌握":"未掌握"}</span>
-      </div>
-    </div>
-    <div class="modal-foot" style="justify-content:space-between">
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-danger btn-sm" id="dDel">${ICONS.trash} 删除</button>
-        <button class="btn btn-ghost btn-sm" id="dAgain">又错了 +1</button>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" id="dMaster">${m.mastered?"取消掌握":"标为掌握"}</button>
-        <button class="btn btn-primary btn-sm" id="dEdit">${ICONS.edit} 编辑</button>
-      </div>
-    </div>`,true);
-  renderMath($("#detailBody"));
-  $("#dDel").onclick=async()=>{
-    if(!confirm("确定删除这道错题吗？"))return;
-    await removeMistake(id);closeModal();toast("已删除","ok");renderView();
-  };
-  $("#dAgain").onclick=async()=>{m.errorCount++;await saveMistake(m);toast("错误次数 +1，建议加入组卷重练");closeModal();renderView()};
-  $("#dMaster").onclick=async()=>{m.mastered=!m.mastered;await saveMistake(m);closeModal();toast(m.mastered?"已标为掌握":"已取消掌握","ok");renderView()};
-  $("#dEdit").onclick=()=>openEdit(m);
-}
-function openEdit(m){
-  openModal(`
-    <div class="modal-head"><h3>编辑错题</h3><button class="icon-btn" onclick="closeModal()">${ICONS.close}</button></div>
-    <div class="modal-body">
-      ${m.image?`<img class="detail-img" src="${m.image}" style="margin-bottom:14px;max-height:200px">`:""}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
-        <div class="field"><label>科目</label><select class="select" id="eSubject">
-          ${SUBJECTS.map(s=>`<option ${m.subject===s?"selected":""}>${s}</option>`).join("")}</select></div>
-        <div class="field"><label>知识点</label><input class="input" id="eKp" value="${esc(m.knowledge)}" placeholder="如：三角函数"></div>
-      </div>
-      <div class="field"><label>题干</label><textarea class="textarea" id="eQ" rows="3" placeholder="题目内容，数学公式可用 $...$ 包裹">${esc(m.question)}</textarea></div>
-      <div class="field"><label>正确答案</label><textarea class="textarea" id="eA" rows="2">${esc(m.answer)}</textarea></div>
-      <div class="field"><label>解析</label><textarea class="textarea" id="eAn" rows="4" placeholder="解题步骤与分析">${esc(m.analysis)}</textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" id="eSave">保存</button>
-    </div>`,true);
-  $("#eSave").onclick=async()=>{
-    m.subject=$("#eSubject").value;m.knowledge=$("#eKp").value.trim();
-    m.question=$("#eQ").value.trim();m.answer=$("#eA").value.trim();m.analysis=$("#eAn").value.trim();
-    await saveMistake(m);closeModal();toast("已保存","ok");renderView();
-  };
-}
-async function seedData(){
-  const samples=[
-    {subject:"数学",knowledge:"三角函数",question:"已知 $\\sin(\\alpha + \\frac{\\pi}{6}) = \\frac{1}{3}$，求 $\\cos(2\\alpha + \\frac{\\pi}{3})$ 的值。",
-     answer:"$\\dfrac{7}{9}$",analysis:"令 $t=\\alpha+\\dfrac{\\pi}{6}$，则 $\\cos(2\\alpha+\\dfrac{\\pi}{3})=\\cos 2t=1-2\\sin^2 t=1-2\\times\\dfrac{1}{9}=\\dfrac{7}{9}$。",errorCount:2},
-    {subject:"物理",knowledge:"牛顿运动定律",question:"质量为 m 的物体放在倾角为 θ 的斜面上恰好匀速下滑，求动摩擦因数 μ。",
-     answer:"μ = tanθ",analysis:"沿斜面方向受力平衡：$mg\\sin\\theta = \\mu mg\\cos\\theta$，解得 $\\mu=\\tan\\theta$。",errorCount:1},
-    {subject:"英语",knowledge:"定语从句",question:"The book ______ I borrowed from the library is very interesting.（填关系代词）",
-     answer:"that / which",analysis:"先行词为物（the book），从句中作 borrowed 的宾语，可用 that 或 which。",errorCount:3},
-    {subject:"数学",knowledge:"导数与单调性",question:"求函数 $f(x)=x^3-3x$ 的单调递减区间。",
-     answer:"$(-1, 1)$",analysis:"$f'(x)=3x^2-3$，令 $f'(x)<0$ 得 $x^2<1$，即 $-1<x<1$。",errorCount:1},
-    {subject:"化学",knowledge:"氧化还原反应",question:"配平：Fe₂O₃ + CO → Fe + CO₂（高温条件）",
-     answer:"Fe₂O₃ + 3CO = 2Fe + 3CO₂",analysis:"Fe 从 +3 降到 0（每个 Fe₂O₃ 得 6e⁻），C 从 +2 升到 +4（每个 CO 失 2e⁻），故 CO 配 3。",errorCount:2}
-  ];
-  for(const s of samples){
-    const m={id:uid(),topic:"",image:"",mastered:false,parsedBy:"sample",
-      createdAt:Date.now()-Math.floor(Math.random()*6)*864e5,updatedAt:Date.now(),...s};
-    await DB.put("mistakes",m);cloud.pushMistake(m);
-  }
-  await loadAll();toast("已载入 5 条示例数据","ok");renderView();renderNav();
-}
-
-/* ---------- 智能组卷 ---------- */
-function renderCompose(v){
-  const f=state.composeFilter;
-  const ms=state.mistakes.filter(m=>!m.mastered||f.includeMastered);
-  const subjects=["全部",...new Set(ms.map(m=>m.subject))];
-  const kps=["全部",...new Set(ms.map(m=>(m.knowledge||"").trim()).filter(Boolean))];
-  let pool=ms;
-  if(f.subject!=="全部")pool=pool.filter(m=>m.subject===f.subject);
-  if(f.kp!=="全部")pool=pool.filter(m=>(m.knowledge||"").trim()===f.kp);
-  if(f.freqOnly)pool=pool.filter(m=>(m.errorCount||1)>=2);
-  state.composeSel=new Set([...state.composeSel].filter(id=>pool.some(m=>m.id===id)));
-  v.innerHTML=`
-  <div class="compose-grid">
-    <div class="card" style="padding:18px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:12px">筛选条件</div>
-      <div class="field"><label>科目</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">${subjects.map(s=>`<span class="chip ${f.subject===s?"on":""}" data-cs="${s}">${s}</span>`).join("")}</div></div>
-      <div class="field"><label>知识点</label>
-        <select class="select" id="kpSel">${kps.map(k=>`<option ${f.kp===k?"selected":""}>${k}</option>`).join("")}</select></div>
-      <div class="field" style="display:flex;flex-direction:column;gap:9px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
-          <input type="checkbox" id="freqOnly" ${f.freqOnly?"checked":""} style="accent-color:var(--accent);width:15px;height:15px"> 仅高频错题（错 ≥2 次）</label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
-          <input type="checkbox" id="incMastered" ${f.includeMastered?"checked":""} style="accent-color:var(--accent);width:15px;height:15px"> 包含已掌握题目</label>
-      </div>
-      <div class="divider"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" id="selAll" style="flex:1">全选</button>
-        <button class="btn btn-ghost btn-sm" id="selNone" style="flex:1">清空</button>
-      </div>
-      <button class="btn btn-primary btn-lg" id="previewBtn" style="width:100%;margin-top:12px" ${state.composeSel.size?"":"disabled"}>
-        ${ICONS.compose} 预览组卷（${state.composeSel.size} 题）</button>
-    </div>
-    <div class="card">
-      <div class="panel-title">可选题目 <span class="hint">${pool.length} 题 · 已选 ${state.composeSel.size}</span></div>
-      <div id="pickList" style="max-height:560px;overflow-y:auto">
-        ${pool.length?pool.map(m=>`
-          <label class="q-pick">
-            <input type="checkbox" data-q="${m.id}" ${state.composeSel.has(m.id)?"checked":""}>
-            ${m.image?`<img src="${m.image}">`:`<div style="width:56px;height:56px;border-radius:9px;background:rgba(14,165,233,.08);flex:none"></div>`}
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">${subjTag(m.subject)}
-                ${m.errorCount>1?`<span style="font-size:11px;color:var(--red);font-weight:800">错${m.errorCount}次</span>`:""}</div>
-              <div style="font-size:12.5px;color:var(--ink2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(m.question)||"（图片题）"}</div>
-            </div>
-          </label>`).join("")
-        :`<div class="empty" style="padding:40px"><div class="empty-title">没有符合条件的题目</div>调整筛选条件，或先去提取错题</div>`}
-      </div>
-    </div>
-  </div>`;
-  $$("#view .chip[data-cs]").forEach(c=>c.onclick=()=>{f.subject=c.dataset.cs;renderCompose(v)});
-  $("#kpSel").onchange=e=>{f.kp=e.target.value;renderCompose(v)};
-  $("#freqOnly").onchange=e=>{f.freqOnly=e.target.checked;renderCompose(v)};
-  $("#incMastered").onchange=e=>{f.includeMastered=e.target.checked;renderCompose(v)};
-  $$("input[data-q]").forEach(cb=>cb.onchange=()=>{
-    cb.checked?state.composeSel.add(cb.dataset.q):state.composeSel.delete(cb.dataset.q);
-    renderCompose(v);
-  });
-  $("#selAll").onclick=()=>{pool.forEach(m=>state.composeSel.add(m.id));renderCompose(v)};
-  $("#selNone").onclick=()=>{state.composeSel.clear();renderCompose(v)};
-  $("#previewBtn").onclick=()=>openComposePreview();
-}
-function openComposePreview(){
-  const qs=[...state.composeSel].map(id=>state.mistakes.find(m=>m.id===id)).filter(Boolean);
-  if(!qs.length)return;
-  const today=fmtDate(Date.now());
-  const subjList=[...new Set(qs.map(q=>q.subject))].join("、");
-  openModal(`
-    <div class="modal-head">
-      <h3>试卷预览</h3>
-      <label style="font-size:12.5px;color:var(--ink2);display:flex;gap:6px;align-items:center;margin-right:6px">
-        <input type="checkbox" id="withAnswer" checked style="accent-color:var(--accent)"> 附答案与解析</label>
-      <button class="btn btn-ghost btn-sm" id="savePaperBtn">${ICONS.papers} 存为试卷</button>
-      <button class="btn btn-primary btn-sm" id="printBtn">${ICONS.print} 打印 / 导出PDF</button>
-      <button class="icon-btn" onclick="closeModal()">${ICONS.close}</button>
-    </div>
-    <div class="modal-body" style="background:rgba(12,72,120,.08)">
-      <div class="paper-sheet mathjax" id="paperSheet">
-        <h2>错题重练卷</h2>
-        <div class="paper-meta">${subjList} · 共 ${qs.length} 题 · ${today}</div>
-        ${qs.map((q,i)=>`
-          <div class="paper-q">
-            <div class="q-title">${i+1}.（${q.subject}${q.knowledge?"· "+esc(q.knowledge):""}）</div>
-            ${q.image?`<img src="${q.image}">`:""}
-            ${q.question?`<div>${q.question.replace(/</g,"&lt;")}</div>`:""}
-            <div class="paper-a q-ans">
-              <b>参考答案：</b>${esc(q.answer)||"—"}
-              ${q.analysis?`<br><b>解析：</b>${esc(q.analysis)}`:""}
-            </div>
-          </div>`).join("")}
-      </div>
-    </div>`,true);
-  renderMath($("#paperSheet"));
-  $("#withAnswer").onchange=()=>{const on=$("#withAnswer").checked;
-    $$("#paperSheet .q-ans").forEach(el=>el.style.display=on?"block":"none")};
-  $("#printBtn").onclick=()=>window.print();
-  $("#savePaperBtn").onclick=async()=>{
-    const p={id:uid(),type:"compose",name:`错题重练卷 ${today}`,createdAt:Date.now(),
-      subjects:subjList,count:qs.length,questions:qs.map(q=>q.id)};
-    await savePaper(p);toast("已存入「我的试卷」","ok");
-  };
-}
-
-/* ---------- 我的试卷 ---------- */
-function renderPapers(v){
-  const ps=state.papers;
-  v.innerHTML=ps.length?`
-    <div style="display:flex;flex-direction:column;gap:12px">
-    ${ps.map(p=>`
-      <div class="card" style="padding:16px 18px;display:flex;align-items:center;gap:14px">
-        <div style="width:44px;height:44px;border-radius:13px;background:${p.type==="compose"?"var(--green-soft)":"var(--accent-soft)"};
-          color:${p.type==="compose"?"#059669":"var(--accent-deep)"};display:flex;align-items:center;justify-content:center;flex:none">
-          ${p.type==="compose"?ICONS.compose:ICONS.papers}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:800">${esc(p.name)}</div>
-          <div style="font-size:12px;color:var(--ink3);margin-top:2px">
-            ${p.type==="compose"?"组卷":"导入试卷"}${p.count?` · ${p.count} 题`:""}${p.subjects?` · ${esc(p.subjects)}`:""} · ${fmtDate(p.createdAt)}</div>
-        </div>
-        ${p.type==="compose"?`<button class="btn btn-ghost btn-sm" data-reopen="${p.id}">查看</button>`:""}
-        <button class="icon-btn" data-pdel="${p.id}" title="删除">${ICONS.trash}</button>
-      </div>`).join("")}
-    </div>`:`
-    <div class="empty card">${ICONS.papers}
-      <div class="empty-title">暂无试卷</div>组卷记录会保存在这里</div>`;
-  $$("[data-pdel]").forEach(b=>b.onclick=async()=>{
-    if(!confirm("确定删除这份试卷记录吗？"))return;
-    await removePaper(b.dataset.pdel);toast("已删除","ok");renderPapers(v);
-  });
-  $$("[data-reopen]").forEach(b=>b.onclick=()=>{
-    const p=state.papers.find(x=>x.id===b.dataset.reopen);
-    if(!p)return;
-    state.composeSel=new Set((p.questions||[]).filter(id=>state.mistakes.some(m=>m.id===id)));
-    if(!state.composeSel.size){toast("卷中题目已不在错题库","err");return}
-    openComposePreview();
-  });
-}
-
-/* ---------- 设置 ---------- */
+/* ============================================================
+ * 设置
+ * ============================================================ */
 function renderSettings(v){
   const s=state.settings;
   const sizeMB=(state.mistakes.reduce((a,m)=>a+(m.image?m.image.length:0),0)/1048576).toFixed(1);
@@ -1294,10 +1746,10 @@ function renderSettings(v){
     <div class="card" style="padding:20px;margin-bottom:14px">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">Supabase 云同步</div>
       <div style="font-size:12.5px;color:var(--ink3);margin-bottom:16px">
-        填写 Supabase 项目的 URL 与 anon key 后，错题与试卷会自动同步到云端（本地仍保留一份）。当前状态：${SUPA.on()?"✅ 已连接":"未配置"}</div>
-      <div class="field"><label>项目 URL（如 https://xxxx.supabase.co）</label>
-        <input class="input" id="supaUrl" value="${esc(s.supaUrl||"")}" placeholder="留空则仅本地存储"></div>
-      <div class="field"><label>Anon Key（项目设置 → API 中可见，可公开）</label>
+        填写项目 URL 与 anon key 后，错题与试卷自动同步云端。当前：${SUPA.on()?"✅ 已连接":"未配置"}</div>
+      <div class="field"><label>项目 URL</label>
+        <input class="input" id="supaUrl" value="${esc(s.supaUrl||"")}" placeholder="https://xxxx.supabase.co"></div>
+      <div class="field"><label>Anon Key</label>
         <input class="input" id="supaKey" value="${esc(s.supaKey||"")}" placeholder="eyJhbGciOi..."></div>
       <div style="display:flex;gap:10px">
         <button class="btn btn-primary" id="saveSupa">保存并测试连接</button>
@@ -1307,23 +1759,23 @@ function renderSettings(v){
     <div class="card" style="padding:20px;margin-bottom:14px">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">AI 解析配置</div>
       <div style="font-size:12.5px;color:var(--ink3);margin-bottom:16px">
-        填写任意 OpenAI 兼容的多模态接口即可自动识题；不配置则使用演示模式（生成可编辑初稿）。</div>
-      <div class="field"><label>接口地址（如 https://api.openai.com/v1/chat/completions）</label>
-        <input class="input" id="setUrl" value="${esc(s.apiUrl)}" placeholder="留空则使用演示模式"></div>
+        填写 OpenAI 兼容的多模态接口即可自动识题；未配置时提取后保留图片，可手动编辑补充。</div>
+      <div class="field"><label>接口地址</label>
+        <input class="input" id="setUrl" value="${esc(s.apiUrl)}" placeholder="https://api.openai.com/v1/chat/completions"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
         <div class="field"><label>API Key</label>
           <input class="input" id="setKey" type="password" value="${esc(s.apiKey)}" placeholder="sk-..."></div>
-        <div class="field"><label>模型（需支持识图）</label>
-          <input class="input" id="setModel" value="${esc(s.apiModel)}" placeholder="如 gpt-4o-mini / qwen-vl-max"></div>
+        <div class="field"><label>模型</label>
+          <input class="input" id="setModel" value="${esc(s.apiModel)}" placeholder="qwen-vl-max / gpt-4o-mini"></div>
       </div>
-      <div class="field"><label>默认科目（未识别出学科时使用）</label>
+      <div class="field"><label>默认科目</label>
         <select class="select" id="setSub">${SUBJECTS.map(x=>`<option ${s.defaultSubject===x?"selected":""}>${x}</option>`).join("")}</select></div>
       <button class="btn btn-primary" id="saveSet">保存配置</button>
     </div>
     <div class="card" style="padding:20px;margin-bottom:14px">
       <div style="font-size:15px;font-weight:800;margin-bottom:4px">数据管理</div>
       <div style="font-size:12.5px;color:var(--ink3);margin-bottom:16px">
-        错题 ${state.mistakes.length} 条 · 试卷 ${state.papers.length} 份 · 图片约 ${sizeMB} MB（浏览器 IndexedDB）</div>
+        错题 ${state.mistakes.length} 条 · 试卷 ${state.papers.length} 份 · 图片约 ${sizeMB} MB</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-ghost" id="expBtn">${ICONS.download} 导出数据</button>
         <button class="btn btn-ghost" id="impBtn">${ICONS.upload} 导入数据</button>
@@ -1334,9 +1786,8 @@ function renderSettings(v){
     <div class="card" style="padding:20px">
       <div style="font-size:15px;font-weight:800;margin-bottom:8px">关于</div>
       <div style="font-size:13px;color:var(--ink2);line-height:2">
-        简错题 · AI 智能错题本 v3（天空蓝玻璃拟态版）<br>
-        多框选裁剪 · 连拍模式 · 页面组织 · AI 解析 · 错题库 · 智能组卷打印 · 学习统计 · Supabase 云同步。<br>
-        无需登录，无付费功能。
+        简错题 · AI 智能错题本 v4<br>
+        内置相机 · 八点透视裁剪 · 拼接 · 扫描增强 · AI 解析 · 组卷打印 · 云同步。
       </div>
     </div>
   </div>`;
@@ -1349,8 +1800,8 @@ function renderSettings(v){
       try{
         const r=await supaFetch("mistakes?select=id&limit=1",{headers:{Prefer:"return=representation"}});
         if(r.ok){toast("云同步已连接","ok");await cloud.pull()}
-      }catch(e){toast("连接失败："+e.message+"（请检查表是否已创建）","err")}
-    }else toast("已保存（仅本地模式）","ok");
+      }catch(e){toast("连接失败："+e.message,"err")}
+    }else toast("已保存","ok");
     renderSettings(v);
   };
   const pull=$("#pullNow");if(pull)pull.onclick=async()=>{await cloud.pull();renderView()};
@@ -1375,7 +1826,7 @@ function renderSettings(v){
     try{
       const data=JSON.parse(await f.text());
       if(!Array.isArray(data.mistakes))throw new Error("文件格式不正确");
-      if(!confirm(`将导入 ${data.mistakes.length} 条错题（与现有数据合并），继续吗？`))return;
+      if(!confirm(`将导入 ${data.mistakes.length} 条错题，继续吗？`))return;
       for(const m of data.mistakes){await DB.put("mistakes",m);cloud.pushMistake(m)}
       for(const p of data.papers||[]){await DB.put("papers",p);cloud.pushPaper(p)}
       await loadAll();toast("导入完成","ok");renderSettings(v);
@@ -1383,10 +1834,10 @@ function renderSettings(v){
     e.target.value="";
   };
   $("#clearBtn").onclick=async()=>{
-    if(!confirm("确定清空全部错题与试卷数据吗？此操作不可恢复！"))return;
-    if(!confirm("再次确认：清空后无法找回（除非已导出备份）。"))return;
+    if(!confirm("确定清空全部错题与试卷数据吗？不可恢复！"))return;
+    if(!confirm("再次确认：清空后无法找回。"))return;
     await DB.clear("mistakes");await DB.clear("papers");
-    state.composeSel.clear();state.queue=[];state.work={pages:[],cur:0,selections:[],burst:false,organize:false};
+    state.composeSel.clear();state.queue=[];state.work={pages:[],cur:0,quads:[],stitchGroup:[],stitchMode:false};
     await loadAll();toast("已清空","ok");renderSettings(v);renderNav();
   };
 }
@@ -1400,9 +1851,9 @@ function renderSettings(v){
     toast("本地存储初始化失败："+e.message,"err");
   }
   syncFoot();
-  const r=location.hash.replace(/^#\//,"")||"home";
-  go(r in ROUTES?r:"home");
-  if(SUPA.on())cloud.pull().then(()=>{syncFoot();if(state.route==="home"||state.route==="library")renderView()});
+  const r=location.hash.replace(/^#\//,"")||"import";
+  go(r in ROUTES?r:"import");
+  if(SUPA.on())cloud.pull().then(()=>{syncFoot();renderView()});
 })();
 </script>
 </body>
