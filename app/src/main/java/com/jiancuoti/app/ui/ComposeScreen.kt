@@ -231,7 +231,8 @@ data class ExportOpts(
     val withAnswerPage: Boolean = true,   // 附答案页
     val withKnowledge: Boolean = true,    // 打印知识点标注
     val withAnalysis: Boolean = false,    // 打印解析步骤
-    val imagesOnly: Boolean = false       // 仅导出题目图片
+    val imagesOnly: Boolean = false,      // 仅导出题目图片
+    val withImage: Boolean = true         // 卷面附题目原图
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -338,6 +339,12 @@ private fun PickDialog(pool: List<Mistake>, initial: Set<String>,
                             Column(Modifier.weight(1f)) {
                                 Row {
                                     SubjectTag(m.subject)
+                                    if (m.variantOf.isNotBlank()) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("变式", fontSize = 10.sp, color = Amber,
+                                            modifier = Modifier.background(Amber.copy(alpha = 0.12f),
+                                                RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 1.dp))
+                                    }
                                     if (m.errorCount > 1) {
                                         Spacer(Modifier.width(6.dp))
                                         Text("错${m.errorCount}次", fontSize = 11.sp, color = Red)
@@ -382,6 +389,7 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> 
                 var withKnowledge by remember { mutableStateOf(true) }
                 var withAnalysis by remember { mutableStateOf(false) }
                 var imagesOnly by remember { mutableStateOf(false) }
+                var withImage by remember { mutableStateOf(true) }
                 Text("导出内容", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 LabeledCheckbox(imagesOnly, "仅导出题目图片（多图分享）") { imagesOnly = it }
@@ -389,6 +397,7 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> 
                     LabeledCheckbox(withAnswerPage, "附答案页（卷末汇总）") { withAnswerPage = it }
                     LabeledCheckbox(withKnowledge, "打印知识点标注") { withKnowledge = it }
                     LabeledCheckbox(withAnalysis, "打印解析步骤") { withAnalysis = it }
+                    LabeledCheckbox(withImage, "卷面附题目原图") { withImage = it }
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -401,7 +410,8 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> 
                                 withAnswerPage = !imagesOnly && withAnswerPage,
                                 withKnowledge = !imagesOnly && withKnowledge,
                                 withAnalysis = !imagesOnly && withAnalysis,
-                                imagesOnly = imagesOnly
+                                imagesOnly = imagesOnly,
+                                withImage = withImage
                             )
                         )
                     }) {
@@ -485,7 +495,7 @@ private suspend fun generatePaperPdf(
                 y += 3 * scale
             }
             // 题图：按真实宽高比缩放；高度上限约版心 30%（紧凑排版：大题约3道/页、小题约7道/页）
-            val img = Store.imgFile(q.imageFile)
+            val img = if (opts.withImage) Store.imgFile(q.imageFile) else null
             if (img != null) {
                 try {
                     val bmp = BitmapFactory.decodeFile(img.absolutePath)

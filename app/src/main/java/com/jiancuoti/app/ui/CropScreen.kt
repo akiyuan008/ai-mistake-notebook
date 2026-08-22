@@ -318,7 +318,7 @@ fun CropScreen(
                 }
             }
 
-            // 每个选区上方的悬浮菜单（轻量，offset 延迟读取）
+            // 每个选区上方的悬浮菜单（上移避开手柄，留出充分间距）
             pageQuads.forEach { q ->
                 val menuW = (if (stitching) 70 else 118).dp
                 Row(
@@ -328,7 +328,7 @@ fun CropScreen(
                             val cx = q.pts.map { it.x }.average().toFloat()
                             IntOffset(
                                 (offX + cx * drawW - with(density) { (menuW / 2).toPx() }).roundToInt(),
-                                (offY + topY * drawH - with(density) { 40.dp.toPx() }).roundToInt().coerceAtLeast(8)
+                                (offY + topY * drawH - with(density) { 64.dp.toPx() }).roundToInt().coerceAtLeast(8)
                             )
                         },
                     horizontalArrangement = Arrangement.spacedBy(6.dp)

@@ -13,6 +13,7 @@ data class Mistake(
     var mastered: Boolean = false,
     var parsedBy: String = "manual",
     var parsing: Boolean = false,      // 后台 AI 解析进行中
+    var variantOf: String = "",       // 举一反三变式题：原错题 id
     val createdAt: Long = System.currentTimeMillis(),
     var updatedAt: Long = System.currentTimeMillis()
 ) : com.jiancuoti.app.net.MistakeLike

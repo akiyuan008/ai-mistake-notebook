@@ -25,15 +25,11 @@ object Store {
     private fun file(name: String) = File(appDir, name)
 
     private fun loadSettings() {
-        // 内置 Supabase 项目凭证（装完即用）
-        settings["supaKey"] = DEFAULT_SUPA_KEY
         try {
             val j = JSONObject(file("settings.json").readText())
             j.keys().forEach { k -> settings[k] = j.optString(k) }
         } catch (_: Exception) {}
     }
-
-    const val DEFAULT_SUPA_KEY = "sb_publishable_mdAw9TOJlGxBdCWv5bDh2Q_Rpwt3pMo"
 
     fun saveSettings() {
         val j = JSONObject()
@@ -58,6 +54,7 @@ object Store {
                     mastered = o.optBoolean("mastered"),
                     parsedBy = o.optString("parsedBy", "manual"),
                     parsing = false,
+                    variantOf = o.optString("variantOf"),
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                     updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
                 ))
@@ -80,6 +77,7 @@ object Store {
                 .put("errorCount", m.errorCount)
                 .put("mastered", m.mastered)
                 .put("parsedBy", m.parsedBy)
+                .put("variantOf", m.variantOf)
                 .put("createdAt", m.createdAt)
                 .put("updatedAt", m.updatedAt))
         }

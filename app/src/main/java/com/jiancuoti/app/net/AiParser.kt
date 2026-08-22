@@ -24,8 +24,9 @@ data class ParseResult(
 data class VariantQuestion(
     val question: String,
     val answer: String,
-    val hint: String,
-    val difficulty: Int
+    val analysis: String,
+    val difficulty: Int,
+    val source: String
 )
 
 object AiParser {
@@ -147,11 +148,11 @@ object AiParser {
                 答案：$answer
 
                 ${if (preferReal) """
-                重要要求：优先从近几年（2020年及以后）全国各地中考/高考真题、模拟题、期中期末考题中挑选与该知识点高度契合的题目（若你具备联网搜索能力，请先搜索近年真题再作答）；每道题在 question 开头用括号标注来源，如（2023·江苏高考）。找不到足够真题时才自行编写，自行编写的标注（改编）。
+                重要要求：优先从近几年（2020年及以后）全国各地中考/高考真题、模拟题、期中期末考题中挑选与该知识点高度契合的题目（若你具备联网搜索能力，请先搜索近年真题再作答）。真题的 answer 必须采用官方公布的参考答案（分步骤完整呈现），并在 source 字段注明来源（如"2023·江苏高考"）。找不到足够真题时才自行编写，source 标注"改编"。
                 """.trimIndent() else "" }
                 请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
                 只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
-                question(新题干)、answer(参考答案)、hint(一句话思路提示)、difficulty(1到3的整数)。
+                question(新题干，含完整选项)、answer(完整参考答案，若是真题用官方答案)、analysis(完整分步解析，每步一行，不少于3步)、difficulty(1到3的整数)、source(来源标注)。
             """.trimIndent()
 
             val body = JSONObject().apply {

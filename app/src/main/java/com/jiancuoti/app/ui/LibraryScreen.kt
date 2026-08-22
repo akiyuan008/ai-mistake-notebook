@@ -55,7 +55,14 @@ fun LibraryScreen(onChanged: () -> Unit) {
     var timeRange by remember { mutableStateOf("全部") }
     var detail by remember { mutableStateOf<Mistake?>(null) }
     var editing by remember { mutableStateOf<Mistake?>(null) }
+    var viewerIndex by remember { mutableStateOf<Int?>(null) }
     var version by remember { mutableIntStateOf(0) }
+
+    // 实时刷新：错题数量或任一解析状态变化时重算列表
+    val parsingCount = Store.mistakes.count { it.parsing }
+    LaunchedEffect(Store.mistakes.size, parsingCount) {
+        version++
+    }
 
     val list = remember(kw, subject, status, timeRange, version) {
         val timeStart = when (timeRange) {
@@ -162,14 +169,45 @@ fun LibraryScreen(onChanged: () -> Unit) {
                 }
             }
         } else {
+            // 快速回看入口
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "共 ${list.size} 题",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { viewerIndex = 0 }) {
+                    Text("快速回看 · 左右滑切题", fontSize = 12.5.sp)
+                }
+            }
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(list, key = { it.id }) { m ->
-                    MistakeCard(m) { detail = m }
+                    MistakeCard(m, onOpen = { detail = m }, onOpenImage = {
+                        val idx = list.indexOfFirst { it.id == m.id }
+                        viewerIndex = if (idx >= 0) idx else 0
+                    })
                 }
                 item { Spacer(Modifier.height(90.dp)) }
+            }
+        }
+
+        // 全屏快速回看
+        viewerIndex?.let { idx ->
+            val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
+            if (imgs.isEmpty()) { viewerIndex = null } else {
+                ImageViewer(
+                    images = imgs,
+                    initialIndex = idx,
+                    titles = list.map { it.knowledge },
+                    onClose = { viewerIndex = null }
+                )
             }
         }
     }
@@ -192,10 +230,10 @@ fun LibraryScreen(onChanged: () -> Unit) {
 }
 
 @Composable
-fun MistakeCard(m: Mistake, onClick: () -> Unit) {
+fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen) {
     val imgFile = Store.imgFile(m.imageFile)
     GlassCard(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen),
         shape = RoundedCornerShape(24.dp)
     ) {
         Row(Modifier.padding(14.dp)) {
@@ -203,7 +241,8 @@ fun MistakeCard(m: Mistake, onClick: () -> Unit) {
                 AsyncImage(
                     model = imgFile,
                     contentDescription = null,
-                    modifier = Modifier.size(82.dp).clip(RoundedCornerShape(16.dp)),
+                    modifier = Modifier.size(82.dp).clip(RoundedCornerShape(16.dp))
+                        .clickableNoRipple(onClick = onOpenImage),
                     contentScale = ContentScale.Crop
                 )
             } else {
@@ -494,15 +533,23 @@ fun DetailDialog(
     // 举一反三：变式题弹窗（结果来自全局后台任务，关弹窗再开也能看到）
     val doneVariants = com.jiancuoti.app.net.BgTasks.variants[m.id]
     if (doneVariants != null && showVariants) {
-        VariantsDialog(doneVariants, m.subject, m.knowledge, onClose = { showVariants = false })
+        VariantsDialog(
+            doneVariants, m,
+            onClose = { showVariants = false },
+            onSavedVariant = { version++; onChanged() }
+        )
     }
 }
 
 @Composable
 private fun VariantsDialog(
     vs: List<com.jiancuoti.app.net.VariantQuestion>,
-    subject: String, knowledge: String, onClose: () -> Unit
+    origin: Mistake,
+    onClose: () -> Unit,
+    onSavedVariant: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    var savedIds by remember { mutableStateOf(setOf<String>()) }
     Dialog(onDismissRequest = onClose) {
         Surface(
             Modifier.fillMaxWidth().fillMaxHeight(0.86f),
@@ -517,10 +564,8 @@ private fun VariantsDialog(
                     Column(Modifier.weight(1f)) {
                         Text("举一反三 · 变式练习", fontSize = 16.sp)
                         Text(
-                            listOf(subject, knowledge).filter { it.isNotBlank() }.joinToString(" · ")
-                                .ifBlank { "同考点变式题" },
-                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                            "点「存入错题本」加入组卷可选池",
+                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     TextButton(onClick = onClose) { Text("关闭") }
@@ -533,26 +578,99 @@ private fun VariantsDialog(
                 ) {
                     var showAns by remember { mutableStateOf(setOf<Int>()) }
                     vs.forEachIndexed { i, v ->
+                        val key = "${origin.id}_v$i"
+                        val saved = savedIds.contains(key)
                         GlassCard(shape = RoundedCornerShape(20.dp)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                                // 头部：变式序号 + 来源 + 难度
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("变式 ${i + 1}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.weight(1f))
-                                    Text("难度 " + "★".repeat(v.difficulty) + "☆".repeat(3 - v.difficulty),
+                                    Text("变式 ${i + 1}", fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.primary)
+                                    if (v.source.isNotBlank()) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(v.source, fontSize = 10.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .background(MaterialTheme.colorScheme.surfaceVariant,
+                                                    RoundedCornerShape(50))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    Text("★".repeat(v.difficulty) + "☆".repeat(3 - v.difficulty),
                                         fontSize = 11.sp, color = Amber)
                                 }
-                                Spacer(Modifier.height(8.dp))
-                                Text(v.question, fontSize = 14.sp, lineHeight = 22.sp)
-                                if (v.hint.isNotBlank()) {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("提示：${v.hint}", fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 18.sp)
-                                }
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
+                                // 题干
+                                Text(v.question, fontSize = 14.5.sp, lineHeight = 24.sp)
+                                // 答案与完整解析（点击展开）
                                 if (showAns.contains(i)) {
-                                    Text("答案：${v.answer}", fontSize = 13.5.sp, color = Green, lineHeight = 20.sp)
-                                } else {
-                                    TextButton(onClick = { showAns = showAns + i }) { Text("查看答案", fontSize = 12.sp) }
+                                    Spacer(Modifier.height(10.dp))
+                                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                                    Spacer(Modifier.height(10.dp))
+                                    Text("【参考答案】", fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(v.answer, fontSize = 14.sp, color = Green,
+                                        lineHeight = 22.sp)
+                                    if (v.analysis.isNotBlank()) {
+                                        Spacer(Modifier.height(10.dp))
+                                        Text("【完整解析】", fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.height(3.dp))
+                                        val steps = v.analysis.split('\n')
+                                            .map { it.trim() }
+                                            .filter { it.isNotBlank() }
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            steps.forEachIndexed { si, step ->
+                                                Row {
+                                                    Text("${si + 1}", fontSize = 10.sp,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier
+                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                                                RoundedCornerShape(50))
+                                                            .padding(horizontal = 6.dp, vertical = 1.dp))
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(step, fontSize = 13.sp, lineHeight = 20.sp,
+                                                        modifier = Modifier.weight(1f))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(
+                                        onClick = {
+                                            showAns = if (showAns.contains(i)) showAns - i else showAns + i
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    ) { Text(if (showAns.contains(i)) "收起答案" else "查看答案与解析", fontSize = 12.5.sp) }
+                                    Button(
+                                        onClick = {
+                                            if (saved) return@Button
+                                            val m = Mistake(
+                                                id = Store.uid(),
+                                                subject = origin.subject,
+                                                knowledge = origin.knowledge.ifBlank { v.source },
+                                                question = v.question,
+                                                answer = v.answer,
+                                                analysis = v.analysis,
+                                                parsedBy = "variant",
+                                                variantOf = origin.id
+                                            )
+                                            Store.mistakes.add(0, m)
+                                            Store.saveMistakes()
+                                            savedIds = savedIds + key
+                                            onSavedVariant()
+                                            scope.launch { Supabase.pushMistake(m) }
+                                        },
+                                        enabled = !saved,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(if (saved) "已存入" else "存入错题本",
+                                            color = Color.White, fontSize = 12.5.sp)
+                                    }
                                 }
                             }
                         }

@@ -287,7 +287,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 }
                                 // 多部分（跨页拼接）→ 等宽合成一张
                                 val finalBmp = if (crops.size > 1) stitchVertical(crops) else crops[0]
-                                val imgName = "m_${System.currentTimeMillis()}_${(0..999).random()}.jpg"
+                                val imgName = "m_${Store.uid()}.jpg"
                                 withContext(Dispatchers.IO) {
                                     FileOutputStream(File(Store.imgDir, imgName)).use {
                                         finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
@@ -378,10 +378,12 @@ private fun stitchVertical(crops: List<android.graphics.Bitmap>): android.graphi
     return out
 }
 
+private var importCounter = 0L
 private fun copyUri(context: android.content.Context, uri: Uri): File? {
     return try {
         val dir = File(context.cacheDir, "imports").apply { mkdirs() }
-        val f = File(dir, "img_${System.currentTimeMillis()}_${(0..999).random()}.jpg")
+        importCounter++
+        val f = File(dir, "img_${System.currentTimeMillis()}_$importCounter.jpg")
         context.contentResolver.openInputStream(uri)?.use { ins ->
             val bmp = android.graphics.BitmapFactory.decodeStream(ins) ?: return null
             FileOutputStream(f).use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }

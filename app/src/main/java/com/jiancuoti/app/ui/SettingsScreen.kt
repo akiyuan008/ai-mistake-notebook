@@ -85,7 +85,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             }
             if (supaUrl.isBlank()) {
                 Spacer(Modifier.height(8.dp))
-                Text("密钥已内置，只需填写项目 URL（Supabase 控制台 → 项目设置 → API 中的 Project URL）",
+                Text("填写 Supabase 项目的 URL 和 anon Key（控制台 → 项目设置 → API）",
                     fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 17.sp)
             }
             Spacer(Modifier.height(10.dp))
@@ -94,10 +94,15 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 placeholder = { Text("https://xxxx.supabase.co", fontSize = 13.sp) },
                 singleLine = true)
             Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = supaKey, onValueChange = { supaKey = it },
+                label = { Text("anon Key") }, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("eyJhbGciOi…", fontSize = 13.sp) },
+                singleLine = true)
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
                     Store.settings["supaUrl"] = supaUrl.trim()
-                    Store.settings["supaKey"] = supaKey.trim().ifBlank { Store.settings["supaKey"] ?: "" }
+                    Store.settings["supaKey"] = supaKey.trim()
                     Store.saveSettings()
                     scope.launch {
                         syncStatus = if (Supabase.testConnection()) {
