@@ -2,11 +2,11 @@ package com.jiancuoti.app.data
 
 /** 错题 */
 data class Mistake(
-    val id: String,
-    var subject: String = "其他",
-    var knowledge: String = "",
-    var question: String = "",
-    var answer: String = "",
+    override val id: String,
+    override var subject: String = "其他",
+    override var knowledge: String = "",
+    override var question: String = "",
+    override var answer: String = "",
     var analysis: String = "",
     var imageFile: String = "",      // 本地文件名（存于 filesDir/imgs）
     var errorCount: Int = 1,
