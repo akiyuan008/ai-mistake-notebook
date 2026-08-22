@@ -10,7 +10,7 @@ android {
         applicationId = "com.jiancuoti.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
+        versionCode = 5
         versionName = "4.0.0"
     }
 
