@@ -173,8 +173,9 @@ object AiParser {
                     VariantQuestion(
                         question = o.optString("question"),
                         answer = o.optString("answer"),
-                        hint = o.optString("hint"),
-                        difficulty = o.optInt("difficulty", 1).coerceIn(1, 3)
+                        analysis = o.optString("analysis"),
+                        difficulty = o.optInt("difficulty", 1).coerceIn(1, 3),
+                        source = o.optString("source")
                     )
                 }.filter { it.question.isNotBlank() }
         }

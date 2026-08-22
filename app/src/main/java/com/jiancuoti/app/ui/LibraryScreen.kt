@@ -536,7 +536,7 @@ fun DetailDialog(
         VariantsDialog(
             doneVariants, m,
             onClose = { showVariants = false },
-            onSavedVariant = { version++; onChanged() }
+            onSavedVariant = { onChanged() }
         )
     }
 }
