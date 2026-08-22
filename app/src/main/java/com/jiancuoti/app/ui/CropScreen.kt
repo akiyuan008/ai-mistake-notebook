@@ -2,6 +2,7 @@ package com.jiancuoti.app.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -9,15 +10,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -25,72 +30,99 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
-/** 选区：归一化坐标 4 角点 + 拼接组 */
-class QuadState(
-    val pts: androidx.compose.runtime.snapshots.SnapshotStateList<Offset>,
-    var group: Int = 0
-)
-
+/** 拼接组颜色 */
 val GROUP_COLORS = listOf(Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFF0D9488), Color(0xFFB45309))
 private val HANDLE_BLUE = Color(0xFF0EA5E9)
 
+/** 一个选区（归一化坐标 + 所属页 + 拼接组） */
+class QuadState(
+    val id: Int,
+    val page: Int,
+    val pts: SnapshotStateList<Offset>,
+    var group: Int = 0
+)
+
+/** 提取项的一个部分：第几页 + 四角归一化坐标 */
+data class CropPart(val page: Int, val pts: List<Offset>)
+
+/** 拖动目标 */
+private sealed class DragTarget {
+    data class Handle(val quad: QuadState, val index: Int, val edge: Boolean) : DragTarget()
+    data class Move(val quad: QuadState) : DragTarget()
+}
+
+/**
+ * 框选页（高性能单画布版本）：
+ * - 只有一个 Canvas 绘制全部选区/手柄/遮罩，拖动只改 SnapshotStateList，不重建列表
+ * - 选区按页管理，切换页保留；拼接可跨页（把两页上的同一题合成一题）
+ * - onExtract：每个元素是一道题（拼接项含多个部分，按页码+位置排序）
+ */
 @Composable
 fun CropScreen(
-    displayBitmap: Bitmap,
+    displayBitmaps: List<Bitmap>,
     pageIndex: Int,
-    pageCount: Int,
-    stitching: Boolean,
-    onExtract: (List<Pair<List<Offset>, Int>>) -> Unit,
+    onExtract: (List<List<CropPart>>) -> Unit,
     onSwitchPage: (Int) -> Unit,
-    onBack: () -> Unit,
-    onToggleStitch: () -> Unit
+    onBack: () -> Unit
 ) {
-    var quads by remember {
-        mutableStateOf(listOf(
-            QuadState(mutableStateListOf(
-                Offset(0.08f, 0.08f), Offset(0.92f, 0.08f),
-                Offset(0.92f, 0.42f), Offset(0.08f, 0.42f)
-            ))
-        ))
-    }
+    var nextId by remember { mutableIntStateOf(0) }
+    var quads by remember { mutableStateOf(listOf<QuadState>()) }
+    var stitching by remember { mutableStateOf(false) }
     var stitchSel by remember { mutableStateOf<Set<Int>>(emptySet()) }
     val density = LocalDensity.current
-    val dpPx = with(density) { 1.dp.toPx() }
+    val touchRadius = with(density) { 26.dp.toPx() }
+    val handleRadius = with(density) { 7.dp.toPx() }
+    var dragTarget by remember { mutableStateOf<DragTarget?>(null) }
 
-    Column(
-        Modifier.fillMaxSize()
-            .background(Color(0xFF0B1220))
-    ) {
+    val bitmap = displayBitmaps[pageIndex]
+
+    // 初始给当前页一个选区
+    LaunchedEffect(pageIndex) {
+        if (quads.none { it.page == pageIndex }) {
+            quads = quads + QuadState(nextId++, pageIndex, mutableStateListOf(
+                Offset(0.08f, 0.10f), Offset(0.92f, 0.10f),
+                Offset(0.92f, 0.44f), Offset(0.08f, 0.44f)
+            ))
+        }
+    }
+
+    val pageQuads = quads.filter { it.page == pageIndex }
+
+    Column(Modifier.fillMaxSize().background(Color(0xFF0B1220))) {
         // 顶栏
         Row(
             Modifier.fillMaxWidth().statusBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) {
-                Text("返回", color = Color.White)
-            }
+            TextButton(onClick = onBack) { Text("返回", color = Color.White) }
             Spacer(Modifier.weight(1f))
             Text(
-                if (pageCount > 1) "第 ${pageIndex + 1} / $pageCount 页" else "框选题目",
+                if (displayBitmaps.size > 1) "第 ${pageIndex + 1} / ${displayBitmaps.size} 页" else "框选题目",
                 color = Color.White, fontSize = 14.sp
             )
             Spacer(Modifier.weight(1f))
             TextButton(onClick = {
-                quads = quads + QuadState(mutableStateListOf(
+                quads = quads + QuadState(nextId++, pageIndex, mutableStateListOf(
                     Offset(0.25f, 0.55f), Offset(0.75f, 0.55f),
                     Offset(0.75f, 0.85f), Offset(0.25f, 0.85f)
                 ))
-            }) {
-                Text("+选区", color = Color.White)
-            }
+            }) { Text("+选区", color = Color.White) }
         }
 
-        // 裁剪画布
+        if (stitching) {
+            Text(
+                "拼接模式：点选 ≥2 个选区（可跨页），完成后合成一道题。已选 ${stitchSel.size} 个",
+                color = Color(0xFFFDE68A), fontSize = 11.5.sp,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp)
+            )
+        }
+
+        // 裁剪画布（单个 Canvas，高性能）
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val boxW = constraints.maxWidth.toFloat()
             val boxH = constraints.maxHeight.toFloat()
-            val imgAspect = displayBitmap.width.toFloat() / displayBitmap.height
+            val imgAspect = bitmap.width.toFloat() / bitmap.height
             val boxAspect = boxW / boxH
             val drawW: Float; val drawH: Float
             if (imgAspect > boxAspect) { drawW = boxW; drawH = boxW / imgAspect }
@@ -98,122 +130,146 @@ fun CropScreen(
             val offX = (boxW - drawW) / 2
             val offY = (boxH - drawH) / 2
 
-            // 底图（静态，只画一次）
-            androidx.compose.foundation.Image(
-                bitmap = displayBitmap.asImageBitmapCompat(),
+            Image(
+                bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                contentScale = ContentScale.Fit
             )
-            // 暗色遮罩（画布外区域）
-            Canvas(Modifier.fillMaxSize()) {
-                drawRect(Color.Black.copy(alpha = 0.35f))
-            }
 
-            // 每个选区
-            quads.forEachIndexed { qi, q ->
-                val color = if (q.group > 0) GROUP_COLORS[(q.group - 1) % GROUP_COLORS.size]
-                            else HANDLE_BLUE
-                val inStitch = stitchSel.contains(qi)
+            // 手势层：命中检测（手柄优先，其次选区整体移动）
+            fun toN(p: Offset) = Offset((p.x - offX) / drawW, (p.y - offY) / drawH)
+            fun toPx(n: Offset) = Offset(offX + n.x * drawW, offY + n.y * drawH)
 
-                // 多边形 + 整体移动手势
-                Canvas(
-                    Modifier.fillMaxSize().pointerInput(qi) {
-                        detectDragGestures(
-                            onDragStart = { down ->
-                                val nx = (down.x - offX) / drawW
-                                val ny = (down.y - offY) / drawH
-                                if (!pointInQuadN(Offset(nx, ny), q.pts)) {
-                                    dragQuad = -1
-                                } else dragQuad = qi
-                            },
-                            onDrag = { change, drag ->
-                                change.consume()
-                                if (dragQuad != qi) return@detectDragGestures
-                                val dx = drag.x / drawW; val dy = drag.y / drawH
+            Canvas(
+                Modifier.fillMaxSize().pointerInput(pageIndex, quads.size, stitching) {
+                    detectDragGestures(
+                        onDragStart = { down ->
+                            dragTarget = null
+                            // 1) 命中手柄（角点/边中点），按倒序（上层优先）
+                            for (qi in pageQuads.indices.reversed()) {
+                                val q = pageQuads[qi]
+                                // 角点
                                 for (i in 0..3) {
-                                    val p = q.pts[i]
-                                    q.pts[i] = Offset(
-                                        (p.x + dx).coerceIn(0f, 1f),
-                                        (p.y + dy).coerceIn(0f, 1f)
-                                    )
+                                    if (hypot(down.x - toPx(q.pts[i]).x, down.y - toPx(q.pts[i]).y) < touchRadius) {
+                                        dragTarget = DragTarget.Handle(q, i, false); return@detectDragGestures
+                                    }
                                 }
-                                quads = quads.toMutableList().also { it[qi] = q }
-                            },
-                            onDragEnd = { dragQuad = -1 }
-                        )
+                                // 边中点
+                                for (i in 0..3) {
+                                    val a = q.pts[i]; val b = q.pts[(i + 1) % 4]
+                                    val m = toPx(Offset((a.x + b.x) / 2, (a.y + b.y) / 2))
+                                    if (hypot(down.x - m.x, down.y - m.y) < touchRadius) {
+                                        dragTarget = DragTarget.Handle(q, i, true); return@detectDragGestures
+                                    }
+                                }
+                            }
+                            // 2) 命中选区内部 → 整体移动（倒序，后加的在上层）
+                            for (qi in pageQuads.indices.reversed()) {
+                                val q = pageQuads[qi]
+                                if (pointInQuadN(toN(down), q.pts)) {
+                                    dragTarget = DragTarget.Move(q); return@detectDragGestures
+                                }
+                            }
+                        },
+                        onDrag = { change, drag ->
+                            change.consume()
+                            val t = dragTarget ?: return@detectDragGestures
+                            val dx = drag.x / drawW; val dy = drag.y / drawH
+                            when (t) {
+                                is DragTarget.Handle -> {
+                                    val q = t.quad
+                                    if (t.edge) {
+                                        // 边中点：拖动整条边
+                                        val a = t.index; val b = (t.index + 1) % 4
+                                        val pa = q.pts[a]; val pb = q.pts[b]
+                                        q.pts[a] = Offset((pa.x + dx).coerceIn(0f, 1f), (pa.y + dy).coerceIn(0f, 1f))
+                                        q.pts[b] = Offset((pb.x + dx).coerceIn(0f, 1f), (pb.y + dy).coerceIn(0f, 1f))
+                                    } else {
+                                        val p = q.pts[t.index]
+                                        q.pts[t.index] = Offset((p.x + dx).coerceIn(0f, 1f), (p.y + dy).coerceIn(0f, 1f))
+                                    }
+                                }
+                                is DragTarget.Move -> {
+                                    val q = t.quad
+                                    for (i in 0..3) {
+                                        val p = q.pts[i]
+                                        q.pts[i] = Offset((p.x + dx).coerceIn(0f, 1f), (p.y + dy).coerceIn(0f, 1f))
+                                    }
+                                }
+                            }
+                        },
+                        onDragEnd = { dragTarget = null },
+                        onDragCancel = { dragTarget = null }
+                    )
+                }
+            ) {
+                // 暗色遮罩 + 挖洞（even-odd）
+                val mask = Path().apply { fillType = PathFillType.EvenOdd }
+                mask.addRect(0f, 0f, size.width, size.height)
+                for (q in pageQuads) {
+                    val p0 = toPx(q.pts[0])
+                    mask.moveTo(p0.x, p0.y)
+                    for (i in 1..3) {
+                        val p = toPx(q.pts[i]); mask.lineTo(p.x, p.y)
                     }
-                ) {
-                    val px = q.pts.map { Offset(offX + it.x * drawW, offY + it.y * drawH) }
+                    mask.close()
+                }
+                drawPath(mask, Color.Black.copy(alpha = 0.4f), style = Fill)
+
+                // 选区边框 + 手柄
+                for (q in pageQuads) {
+                    val color = if (q.group > 0) GROUP_COLORS[(q.group - 1) % GROUP_COLORS.size] else HANDLE_BLUE
+                    val selected = stitchSel.contains(q.id)
                     val path = Path().apply {
-                        moveTo(px[0].x, px[0].y)
-                        for (i in 1..3) lineTo(px[i].x, px[i].y)
+                        val p0 = toPx(q.pts[0]); moveTo(p0.x, p0.y)
+                        for (i in 1..3) { val p = toPx(q.pts[i]); lineTo(p.x, p.y) }
                         close()
                     }
-                    // 清除选区内遮罩效果：画亮色填充
-                    drawPath(path, Color.White.copy(alpha = if (inStitch) 0.28f else 0.14f))
-                    drawPath(path, color, style = Stroke(width = 3f))
-                    if (inStitch) drawPath(path, Color(0xFF7C3AED), style = Stroke(width = 5f))
+                    if (selected) drawPath(path, Color(0xFF7C3AED).copy(alpha = 0.25f))
+                    drawPath(path, color, style = Stroke(width = if (selected) 6f else 3f))
+                    // 手柄：4 角 + 4 边中点
+                    for (i in 0..3) {
+                        drawCircle(Color.White, radius = handleRadius, center = toPx(q.pts[i]))
+                        drawCircle(color, radius = handleRadius * 0.55f, center = toPx(q.pts[i]))
+                    }
+                    for (i in 0..3) {
+                        val a = q.pts[i]; val b = q.pts[(i + 1) % 4]
+                        val m = toPx(Offset((a.x + b.x) / 2, (a.y + b.y) / 2))
+                        drawCircle(Color.White, radius = handleRadius * 0.8f, center = m)
+                        drawCircle(color, radius = handleRadius * 0.45f, center = m)
+                    }
                 }
+            }
 
-                // 8 个手柄（独立拖动）
-                for (i in 0..3) {
-                    // 角点
-                    HandleDot(
-                        color = color, isEdge = false,
-                        posPx = {
-                            val p = q.pts[i]
-                            Offset(offX + p.x * drawW, offY + p.y * drawH)
-                        },
-                        onDrag = { d ->
-                            val p = q.pts[i]
-                            q.pts[i] = Offset(
-                                (p.x + d.x / drawW).coerceIn(0f, 1f),
-                                (p.y + d.y / drawH).coerceIn(0f, 1f)
-                            )
-                            quads = quads.toMutableList().also { it[qi] = q }
-                        }
-                    )
-                    // 边中点
-                    val a = i; val b = (i + 1) % 4
-                    HandleDot(
-                        color = color, isEdge = true,
-                        posPx = {
-                            val pa = q.pts[a]; val pb = q.pts[b]
-                            Offset(offX + (pa.x + pb.x) / 2 * drawW, offY + (pa.y + pb.y) / 2 * drawH)
-                        },
-                        onDrag = { d ->
-                            val dx = d.x / drawW; val dy = d.y / drawH
-                            val pa = q.pts[a]; val pb = q.pts[b]
-                            q.pts[a] = Offset((pa.x + dx).coerceIn(0f, 1f), (pa.y + dy).coerceIn(0f, 1f))
-                            q.pts[b] = Offset((pb.x + dx).coerceIn(0f, 1f), (pb.y + dy).coerceIn(0f, 1f))
-                            quads = quads.toMutableList().also { it[qi] = q }
-                        }
-                    )
-                }
-
-                // 悬浮菜单（选区上方）
-                val topY = q.pts.minOf { it.y }
-                val cx = q.pts.map { it.x }.average().toFloat()
-                val menuX = (offX + cx * drawW).roundToInt()
-                val menuY = (offY + topY * drawH - 44 * dpPx).roundToInt().coerceAtLeast(8)
+            // 每个选区上方的悬浮菜单（轻量，offset 延迟读取）
+            pageQuads.forEach { q ->
+                val menuW = (if (stitching) 70 else 118).dp
                 Row(
-                    modifier = Modifier.offset { IntOffset(menuX - (90 * dpPx).roundToInt(), menuY) },
+                    modifier = Modifier
+                        .offset {
+                            val topY = q.pts.minOf { it.y }
+                            val cx = q.pts.map { it.x }.average().toFloat()
+                            IntOffset(
+                                (offX + cx * drawW - with(density) { (menuW / 2).toPx() }).roundToInt(),
+                                (offY + topY * drawH - with(density) { 40.dp.toPx() }).roundToInt().coerceAtLeast(8)
+                            )
+                        },
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (stitching) {
-                        SmallBtn(if (inStitch) "已选" else "拼接",
-                            if (inStitch) Color(0xFF7C3AED) else Color(0xFFF59E0B)) {
-                            stitchSel = if (inStitch) stitchSel - qi else stitchSel + qi
+                        val on = stitchSel.contains(q.id)
+                        SmallBtn(if (on) "已选" else "拼接", if (on) Color(0xFF7C3AED) else Color(0xFFF59E0B)) {
+                            stitchSel = if (on) stitchSel - q.id else stitchSel + q.id
                         }
                     } else {
                         SmallBtn("拼接", Color(0xFFF59E0B)) {
-                            onToggleStitch()
-                            stitchSel = setOf(qi)
+                            stitching = true
+                            stitchSel = setOf(q.id)
                         }
                         SmallBtn("×", Color(0xFFF43F5E)) {
-                            quads = quads.filterIndexed { idx, _ -> idx != qi }
-                            stitchSel = emptySet()
+                            quads = quads.filter { it.id != q.id }
+                            stitchSel = stitchSel - q.id
                         }
                     }
                 }
@@ -227,37 +283,49 @@ fun CropScreen(
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             if (stitching) {
-                Button(
-                    onClick = {
-                        if (stitchSel.size >= 2) {
-                            val gid = (quads.maxOfOrNull { it.group } ?: 0) + 1
-                            stitchSel.forEach { qi -> quads[qi].group = gid }
-                        }
-                        onToggleStitch()
-                        stitchSel = emptySet()
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
-                ) {
-                    Text("完成拼接 (${stitchSel.size})", color = Color.White)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    OutlinedButton(
+                        onClick = { stitching = false; stitchSel = emptySet() },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("取消", color = Color.White) }
+                    Button(
+                        onClick = {
+                            if (stitchSel.size >= 2) {
+                                val gid = (quads.maxOfOrNull { it.group } ?: 0) + 1
+                                quads.filter { stitchSel.contains(it.id) }.forEach { it.group = gid }
+                            }
+                            stitching = false
+                            stitchSel = emptySet()
+                        },
+                        enabled = stitchSel.size >= 2,
+                        modifier = Modifier.weight(2f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+                    ) {
+                        Text("完成拼接 (${stitchSel.size})", color = Color.White)
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (pageIndex > 0) {
                     OutlinedButton(onClick = { onSwitchPage(pageIndex - 1) },
-                        modifier = Modifier.weight(1f)) {
-                        Text("上一页", color = Color.White)
-                    }
+                        modifier = Modifier.weight(1f)) { Text("上一页", color = Color.White) }
                 }
-                if (pageIndex < pageCount - 1) {
+                if (pageIndex < displayBitmaps.size - 1) {
                     OutlinedButton(onClick = { onSwitchPage(pageIndex + 1) },
-                        modifier = Modifier.weight(1f)) {
-                        Text("下一页", color = Color.White)
-                    }
+                        modifier = Modifier.weight(1f)) { Text("下一页", color = Color.White) }
                 }
                 Button(
                     onClick = {
-                        onExtract(quads.map { it.pts.toList() to it.group })
+                        // group=0 → 各自成题；group>0 → 同组合成一道（按页+位置排序）
+                        val singles = quads.filter { it.group == 0 }
+                            .map { listOf(CropPart(it.page, it.pts.toList())) }
+                        val grouped = quads.filter { it.group > 0 }
+                            .groupBy { it.group }
+                            .map { (_, qs) ->
+                                qs.sortedWith(compareBy({ it.page }, { it.pts.minOf { p -> p.y } }))
+                                    .map { CropPart(it.page, it.pts.toList()) }
+                            }
+                        onExtract(singles + grouped)
                     },
                     modifier = Modifier.weight(2f),
                     colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
@@ -268,8 +336,6 @@ fun CropScreen(
         }
     }
 }
-
-private var dragQuad = -1
 
 @Composable
 private fun SmallBtn(text: String, bg: Color, onClick: () -> Unit) {
@@ -284,39 +350,6 @@ private fun SmallBtn(text: String, bg: Color, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun HandleDot(
-    color: Color, isEdge: Boolean,
-    posPx: () -> Offset,
-    onDrag: (Offset) -> Unit
-) {
-    val density = LocalDensity.current
-    val sizePx = with(density) { (if (isEdge) 20.dp else 18.dp).toPx() }
-    Box(
-        modifier = Modifier
-            .offset {
-                val p = posPx()
-                IntOffset(p.x.roundToInt() - sizePx.roundToInt() / 2, p.y.roundToInt() - sizePx.roundToInt() / 2)
-            }
-            .size(if (isEdge) 20.dp else 18.dp)
-            .clip(CircleShape)
-            .background(Color.White)
-            .pointerInput(Unit) {
-                detectDragGestures { change, drag ->
-                    change.consume()
-                    onDrag(drag)
-                }
-            }
-    ) {
-        Box(
-            modifier = Modifier.align(Alignment.Center)
-                .size(if (isEdge) 13.dp else 11.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-    }
-}
-
 private fun pointInQuadN(p: Offset, pts: List<Offset>): Boolean {
     var inside = false
     var j = 3
@@ -328,7 +361,3 @@ private fun pointInQuadN(p: Offset, pts: List<Offset>): Boolean {
     }
     return inside
 }
-
-@Composable
-private fun Bitmap.asImageBitmapCompat(): androidx.compose.ui.graphics.ImageBitmap =
-    this.asImageBitmap()

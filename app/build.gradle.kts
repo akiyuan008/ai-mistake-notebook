@@ -11,8 +11,8 @@ android {
         applicationId = "com.jiancuoti.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "5.2.0"
+        versionCode = 7
+        versionName = "5.3.0"
     }
 
     buildTypes {

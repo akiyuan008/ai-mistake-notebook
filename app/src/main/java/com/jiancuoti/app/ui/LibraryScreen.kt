@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -283,8 +284,51 @@ fun DetailDialog(
                         Spacer(Modifier.height(12.dp))
                     }
                     if (m.question.isNotBlank()) Section("题干") { Text(m.question, fontSize = 14.sp, lineHeight = 22.sp) }
+                    // 知识点标签
+                    val kps = m.knowledge.split('、', '，', ',', '；', ';', ' ').map { it.trim() }
+                        .filter { it.isNotBlank() }
+                    if (kps.isNotEmpty()) Section("知识点") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                            kps.forEach { kp ->
+                                Text(
+                                    kp, fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .background(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            RoundedCornerShape(50)
+                                        )
+                                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
                     if (m.answer.isNotBlank()) Section("正确答案", Green) { Text(m.answer, fontSize = 14.sp, lineHeight = 22.sp) }
-                    if (m.analysis.isNotBlank()) Section("解析") { Text(m.analysis, fontSize = 14.sp, lineHeight = 22.sp) }
+                    // 解题流程：按行拆分编号展示
+                    if (m.analysis.isNotBlank()) Section("解题流程") {
+                        val lines = m.analysis.split('\n', '；')
+                            .map { it.trim().replace(Regex("^[①②③④⑤⑥⑦⑧⑨]|^\\d{1,2}[.、）)]\\s*"), "").trim() }
+                            .filter { it.length > 1 }
+                        if (lines.size > 1) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                lines.forEachIndexed { i, line ->
+                                    Row {
+                                        Text("${i + 1}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.background(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                                RoundedCornerShape(50)
+                                            ).padding(horizontal = 7.dp, vertical = 1.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(line, fontSize = 13.5.sp, lineHeight = 21.sp,
+                                            modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(m.analysis, fontSize = 14.sp, lineHeight = 22.sp)
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "录入 ${fmtDate(m.createdAt)} · 错误 ${m.errorCount} 次 · ${if (m.mastered) "已掌握" else "未掌握"}",

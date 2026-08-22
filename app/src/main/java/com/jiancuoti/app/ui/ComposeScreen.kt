@@ -98,7 +98,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
                 OutlinedTextField(
                     value = kp, onValueChange = { kp = it },
                     placeholder = { Text("搜索考点…", fontSize = 13.sp) },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -215,7 +215,7 @@ private fun MenuField(value: String, options: List<String>, label: String,
             value = value, onValueChange = {}, readOnly = true,
             label = { Text(label, fontSize = 12.sp) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth().height(56.dp),
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
             textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

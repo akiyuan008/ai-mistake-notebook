@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,7 +49,10 @@ fun CameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var singleMode by remember { mutableStateOf(false) }
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    var torchOn by remember { mutableStateOf(false) }
+    // singlePage=true：拍一张直接进框选；false：多页连拍收集
+    var singlePage by remember { mutableStateOf(true) }
     var shots by remember { mutableStateOf<List<File>>(emptyList()) }
     var capturing by remember { mutableStateOf(false) }
 
@@ -69,11 +74,12 @@ fun CameraScreen(
                     imageCapture = capture
                     try {
                         provider.unbindAll()
-                        provider.bindToLifecycle(
+                        camera = provider.bindToLifecycle(
                             lifecycleOwner,
                             CameraSelector.DEFAULT_BACK_CAMERA,
                             preview, capture
                         )
+                        camera?.cameraControl?.enableTorch(torchOn)
                     } catch (_: Exception) {}
                 }, ContextCompat.getMainExecutor(ctx))
                 previewView
@@ -94,6 +100,26 @@ fun CameraScreen(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
                     .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(50))
                     .padding(horizontal = 14.dp, vertical = 4.dp)
+            )
+        }
+
+        // 顶部右侧：闪光灯开关（玻璃质感）
+        Box(
+            Modifier.align(Alignment.TopEnd)
+                .statusBarsPadding().padding(end = 16.dp, top = 10.dp)
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(if (torchOn) Amber.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.18f))
+                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                .clickableNoRipple {
+                    torchOn = !torchOn
+                    camera?.cameraControl?.enableTorch(torchOn)
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (torchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                null, tint = Color.White, modifier = Modifier.size(20.dp)
             )
         }
 
@@ -129,8 +155,8 @@ fun CameraScreen(
                     .background(Color.Black.copy(alpha = 0.4f))
                     .padding(4.dp)
             ) {
-                TabPill("单页", !singleMode) { singleMode = false }
-                TabPill("多页", singleMode) { singleMode = true }
+                TabPill("单页", singlePage) { singlePage = true }
+                TabPill("多页", !singlePage) { singlePage = false }
             }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -159,7 +185,7 @@ fun CameraScreen(
                         takePhoto(imageCapture, context) { file ->
                             capturing = false
                             if (file == null) return@takePhoto
-                            if (singleMode) {
+                            if (singlePage) {
                                 onSingleShot(file)
                             } else {
                                 shots = shots + file
@@ -175,7 +201,7 @@ fun CameraScreen(
                 // 占位，保持快门居中
                 Spacer(Modifier.size(64.dp))
             }
-            if (!singleMode && shots.isNotEmpty()) {
+            if (!singlePage && shots.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = { onMultiShots(shots) },
@@ -186,9 +212,9 @@ fun CameraScreen(
                     Text("开始框选 (${shots.size} 页)", color = Color.White)
                 }
             }
-            if (singleMode) {
+            if (!singlePage) {
                 Spacer(Modifier.height(6.dp))
-                Text("拍摄后直接进入框选", fontSize = 11.sp,
+                Text("连拍多页后统一框选，可跨页拼接", fontSize = 11.sp,
                     color = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.align(Alignment.CenterHorizontally))
             }
