@@ -108,15 +108,15 @@ fun ComposeScreen(onChanged: () -> Unit) {
                     MenuField(errMin, listOf("全部", "≥2次", "≥3次"), "错误次数",
                         Modifier.weight(1f)) { errMin = it }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    .horizontalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("全部", "近7天", "近1月", "近3月", "近6月").forEach { r ->
                         FilterChip(selected = range == r, onClick = { range = r },
                             label = { Text(r, fontSize = 11.sp) })
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    .horizontalScroll(rememberScrollState())) {
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("未掌握", "已掌握", "全部").forEach { s ->
                         FilterChip(selected = mastered == s, onClick = { mastered = s },
                             label = { Text(s, fontSize = 11.sp) })
