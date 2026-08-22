@@ -25,11 +25,15 @@ object Store {
     private fun file(name: String) = File(appDir, name)
 
     private fun loadSettings() {
+        // 内置 Supabase 项目凭证（装完即用）
+        settings["supaKey"] = DEFAULT_SUPA_KEY
         try {
             val j = JSONObject(file("settings.json").readText())
             j.keys().forEach { k -> settings[k] = j.optString(k) }
         } catch (_: Exception) {}
     }
+
+    const val DEFAULT_SUPA_KEY = "sb_publishable_mdAw9TOJlGxBdCWv5bDh2Q_Rpwt3pMo"
 
     fun saveSettings() {
         val j = JSONObject()

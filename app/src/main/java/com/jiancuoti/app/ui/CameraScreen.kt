@@ -11,6 +11,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,8 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,20 +35,23 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import java.io.File
 
+/**
+ * 原生相机页：支持 单页（拍一张直接进裁剪）/ 多页（连拍收集）
+ */
 @Composable
 fun CameraScreen(
-    onShotsTaken: (List<File>) -> Unit,
-    onOpenAlbum: () -> Unit,
-    onClose: () -> Unit
+    onSingleShot: (File) -> Unit,
+    onMultiShots: (List<File>) -> Unit,
+    onOpenAlbum: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var flashOn by remember { mutableStateOf(false) }
+    var singleMode by remember { mutableStateOf(false) }
     var shots by remember { mutableStateOf<List<File>>(emptyList()) }
     var capturing by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize().background(Color(0xFF0B1220))) {
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx).apply {
@@ -81,110 +83,143 @@ fun CameraScreen(
 
         // 引导框
         Box(
-            Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.68f)
+            Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.66f)
                 .align(Alignment.Center)
-                .border(1.5.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
         ) {
             Text(
                 "将试卷放入框内，保持平整",
-                color = Color.White.copy(alpha = 0.8f),
+                color = Color.White.copy(alpha = 0.85f),
                 fontSize = 12.sp,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
-                    .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 3.dp)
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 4.dp)
             )
         }
 
-        // 顶部栏
+        // 顶部：相册入口
         Row(
             Modifier.fillMaxWidth().align(Alignment.TopCenter)
-                .statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                .statusBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, null, tint = Color.White)
-            }
-            Spacer(Modifier.weight(1f))
-            Text("拍摄试卷", color = Color.White, fontSize = 16.sp)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = { flashOn = !flashOn }) {
-                Icon(
-                    if (flashOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                    null, tint = Color.White
-                )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.35f))
+                    .clickableNoRipple(onClick = onOpenAlbum)
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.PhotoLibrary, null, tint = Color.White,
+                    modifier = Modifier.size(20.dp))
+                Text("相册", color = Color.White, fontSize = 10.5.sp)
             }
         }
 
-        // 底部控制
+        // 底部控制区
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .navigationBarsPadding().padding(bottom = 12.dp)
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))))
+                .navigationBarsPadding().padding(bottom = 14.dp)
         ) {
+            // 连拍缩略图
             if (shots.isNotEmpty()) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 10.dp)
                 ) {
                     items(shots) { f ->
                         AsyncImage(
                             model = f,
                             contentDescription = null,
-                            modifier = Modifier.size(52.dp, 68.dp)
+                            modifier = Modifier.size(50.dp, 66.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                         )
                     }
                 }
-                Spacer(Modifier.height(10.dp))
+            }
+            // 单页/多页切换
+            Row(
+                Modifier.align(Alignment.CenterHorizontally).padding(bottom = 12.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(4.dp)
+            ) {
+                TabPill("单页", !singleMode) { singleMode = false }
+                TabPill("多页", singleMode) { singleMode = true }
             }
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 28.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        IconButton(onClick = onOpenAlbum) {
-                            Icon(
-                                Icons.Default.PhotoLibrary, null,
-                                tint = Color.White,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.14f))
-                                    .padding(10.dp)
-                            )
-                        }
-                        Text("相册", color = Color.White, fontSize = 10.sp)
-                    }
-                }
+                Spacer(Modifier.weight(1f))
                 // 快门
                 Button(
                     onClick = {
                         if (capturing) return@Button
                         capturing = true
                         takePhoto(imageCapture, context) { file ->
-                            if (file != null) shots = shots + file
                             capturing = false
+                            if (file == null) return@takePhoto
+                            if (singleMode) {
+                                onSingleShot(file)
+                            } else {
+                                shots = shots + file
+                            }
                         }
                     },
-                    modifier = Modifier.size(74.dp),
+                    modifier = Modifier.size(76.dp),
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     contentPadding = PaddingValues(0.dp)
                 ) {}
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    if (shots.isNotEmpty()) {
-                        Button(
-                            onClick = { onShotsTaken(shots) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
-                        ) {
-                            Text("完成(${shots.size})", color = Color.White)
-                        }
-                    }
+                Spacer(Modifier.weight(1f))
+            }
+            if (!singleMode && shots.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = { onMultiShots(shots) },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                        .fillMaxWidth(0.6f),
+                    colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
+                ) {
+                    Text("开始框选 (${shots.size} 页)", color = Color.White)
                 }
+            }
+            if (singleMode) {
+                Spacer(Modifier.height(6.dp))
+                Text("拍摄后直接进入框选", fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }
     }
 }
+
+@Composable
+private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.clip(RoundedCornerShape(50))
+            .background(if (selected) Color.White else Color.Transparent)
+            .clickableNoRipple(onClick = onClick)
+            .padding(horizontal = 22.dp, vertical = 6.dp)
+    ) {
+        Text(label, fontSize = 13.sp,
+            color = if (selected) Color(0xFF0B1220) else Color.White)
+    }
+}
+
+@Composable
+fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
+    this.then(Modifier.clickable(
+        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null,
+        onClick = onClick
+    ))
 
 private fun takePhoto(
     capture: ImageCapture?,
@@ -209,15 +244,15 @@ private fun takePhoto(
     )
 }
 
-/** 读取图片文件并按需旋转/缩放为 Bitmap（相机图通常较大） */
+/** 读取图片并按需缩放 + EXIF 旋转 */
 fun loadBitmap(file: File, maxSide: Int = 2400): Bitmap {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.absolutePath, opts)
     var sample = 1
     while (opts.outWidth / sample > maxSide || opts.outHeight / sample > maxSide) sample *= 2
     val bmp = BitmapFactory.decodeFile(file.absolutePath,
-        BitmapFactory.Options().apply { inSampleSize = sample }) ?: return Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
-    // 处理 EXIF 旋转
+        BitmapFactory.Options().apply { inSampleSize = sample })
+        ?: return Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
     return try {
         val exif = androidx.exifinterface.media.ExifInterface(file.absolutePath)
         val orient = exif.getAttributeInt(
