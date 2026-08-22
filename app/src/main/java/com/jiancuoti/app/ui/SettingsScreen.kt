@@ -72,7 +72,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             }
             Spacer(Modifier.height(6.dp))
             Text("「自动」跟随系统设置", fontSize = 11.5.sp,
-                color = MaterialTheme.colorScheme.outline)
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(14.dp))
 
@@ -80,13 +80,13 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         SettingsCard("Supabase 云同步") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("当前：$syncStatus", fontSize = 13.sp,
-                    color = if (syncStatus == "已配置" || syncStatus.startsWith("已连接")) Green else MaterialTheme.colorScheme.outline,
+                    color = if (syncStatus == "已配置" || syncStatus.startsWith("已连接")) Green else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f))
             }
             if (supaUrl.isBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text("密钥已内置，只需填写项目 URL（Supabase 控制台 → 项目设置 → API 中的 Project URL）",
-                    fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline, lineHeight = 17.sp)
+                    fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 17.sp)
             }
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(value = supaUrl, onValueChange = { supaUrl = it },
@@ -121,7 +121,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         // AI 解析
         SettingsCard("AI 解析配置") {
             Text("填写 OpenAI 兼容多模态接口即可自动识题、举一反三", fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.outline)
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(value = apiUrl, onValueChange = { apiUrl = it },
                 label = { Text("接口地址") }, modifier = Modifier.fillMaxWidth(),
@@ -151,21 +151,41 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 }) { Text("选择模型", color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp) }
             }
             Text("当前模型：${apiModel.ifBlank { "未选择（默认 gpt-4o-mini）" }}",
-                fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline,
+                fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (modelStatus.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text(modelStatus, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline)
+                Text(modelStatus, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
-            Button(onClick = {
-                Store.settings["apiUrl"] = apiUrl.trim()
-                Store.settings["apiKey"] = apiKey.trim()
-                Store.settings["apiModel"] = apiModel.trim()
-                Store.saveSettings()
-                modelStatus = "已保存"
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("保存配置", color = androidx.compose.ui.graphics.Color.White)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    Store.settings["apiUrl"] = apiUrl.trim()
+                    Store.settings["apiKey"] = apiKey.trim()
+                    Store.settings["apiModel"] = apiModel.trim()
+                    Store.saveSettings()
+                    modelStatus = "已保存，测试中…"
+                    scope.launch {
+                        modelStatus = try {
+                            // 纯文本测试请求，验证地址/Key/模型
+                            AiParser.testConnection()
+                            "接口可用 ✓"
+                        } catch (e: Exception) {
+                            "测试失败：${e.message?.take(90)}"
+                        }
+                    }
+                }, modifier = Modifier.weight(1f)) {
+                    Text("保存并测试", color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp)
+                }
+                Button(onClick = {
+                    Store.settings["apiUrl"] = apiUrl.trim()
+                    Store.settings["apiKey"] = apiKey.trim()
+                    Store.settings["apiModel"] = apiModel.trim()
+                    Store.saveSettings()
+                    modelStatus = "已保存"
+                }, modifier = Modifier.weight(1f)) {
+                    Text("仅保存", color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp)
+                }
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -278,7 +298,7 @@ private fun ModelPickerDialog(
                             if (loading) "正在获取模型列表…"
                             else if (models.isEmpty()) "未获取到列表，可关闭后手动填写"
                             else "${filtered.size} / ${models.size} 个模型",
-                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline
+                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
@@ -306,7 +326,7 @@ private fun ModelPickerDialog(
                             modifier = Modifier.padding(vertical = 10.dp).weight(1f),
                             decorationBox = { inner ->
                                 if (kw.isBlank()) Text("搜索模型名称…", fontSize = 13.5.sp,
-                                    color = MaterialTheme.colorScheme.outline)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 inner()
                             }
                         )
@@ -323,7 +343,7 @@ private fun ModelPickerDialog(
                     }
                     filtered.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(if (models.isEmpty()) "列表为空" else "无匹配模型",
-                            color = MaterialTheme.colorScheme.outline)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     else -> LazyColumn(Modifier.weight(1f)) {
                         items(filtered, key = { it }) { m ->

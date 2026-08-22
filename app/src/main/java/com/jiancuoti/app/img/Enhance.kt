@@ -4,46 +4,104 @@ import android.graphics.Bitmap
 import kotlin.math.max
 import kotlin.math.min
 
-/** 扫描仪式图像增强：去阴影去底色、提亮纸张、加深字迹 */
+/**
+ * 扫描仪式图像增强 v2（自适应）：
+ * - 先估计图片整体亮度和对比度，只在确实需要时才增强
+ * - 光照不均才做背景归一化；本来均匀的图直接跳过，避免过曝
+ * - 字迹加深幅度随对比度自适应，浅色纸不暴力压暗
+ */
 object Enhance {
 
     fun process(src: Bitmap): Bitmap {
         val w = src.width
         val h = src.height
-        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        if (w <= 0 || h <= 0) return src
 
-        // 1) 低分辨率背景光照估计（16x16 网格）
-        val GN = 16
-        val grid = FloatArray(GN * GN * 3)
-        val cnt = FloatArray(GN * GN)
-        val stepX = max(1, w / 64)
-        val stepY = max(1, h / 64)
-        val px = IntArray(1)
+        // ---- 0) 采样统计：平均亮度 / 最亮背景 / 暗部占比（粗略字迹覆盖率）----
+        val stepX = max(1, w / 128)
+        val stepY = max(1, h / 128)
+        var samples = 0
+        var sumLum = 0f
+        var bgLum = 0f          // 背景亮度估计（偏高亮度分位）
+        var darkPixels = 0
+        val lums = mutableListOf<Int>()
         var y = 0
         while (y < h) {
             var x = 0
             while (x < w) {
-                src.getPixel(x, y).let { p ->
-                    val gi = min(GN - 1, y * GN / h) * GN + min(GN - 1, x * GN / w)
-                    grid[gi * 3] += (p shr 16 and 0xFF).toFloat()
-                    grid[gi * 3 + 1] += (p shr 8 and 0xFF).toFloat()
-                    grid[gi * 3 + 2] += (p and 0xFF).toFloat()
-                    cnt[gi]++
-                }
+                val p = src.getPixel(x, y)
+                val r = (p shr 16 and 0xFF)
+                val g = (p shr 8 and 0xFF)
+                val b = (p and 0xFF)
+                val lum = (r * 299 + g * 587 + b * 114) / 1000
+                sumLum += lum
+                lums.add(lum)
+                if (lum < 90) darkPixels++
                 x += stepX
             }
             y += stepY
         }
-        for (i in 0 until GN * GN) {
-            if (cnt[i] > 0) {
-                grid[i * 3] /= cnt[i]; grid[i * 3 + 1] /= cnt[i]; grid[i * 3 + 2] /= cnt[i]
-            } else {
-                grid[i * 3] = 255f; grid[i * 3 + 1] = 255f; grid[i * 3 + 2] = 255f
+        samples = lums.size
+        if (samples == 0) return src
+        val meanLum = sumLum / samples
+        lums.sort()
+        val p90 = lums[(samples * 0.90).toInt().coerceAtMost(samples - 1)]  // 90 分位 = 纸底
+        val p10 = lums[(samples * 0.10).toInt().coerceAtMost(samples - 1)]  // 10 分位 = 字迹
+        val contrast = p90 - p10
+        bgLum = p90.toFloat()
+
+        // ---- 1) 决策：是否需要处理、强度多大 ----
+        // 亮度已经很好（纸底亮、对比足够）→ 直接返回，不动原图
+        val needBrighten = bgLum < 205f               // 纸底偏暗才提亮
+        val needContrast = contrast < 110             // 对比不足才拉伸
+        val inkRatio = darkPixels.toFloat() / samples
+        if (!needBrighten && !needContrast) return src
+
+        // 光照不均检测：四角+中心背景亮度差
+        val cornerLums = listOf(
+            regionLum(src, 0, 0, w / 6, h / 6),
+            regionLum(src, w - w / 6, 0, w / 6, h / 6),
+            regionLum(src, 0, h - h / 6, w / 6, h / 6),
+            regionLum(src, w - w / 6, h - h / 6, w / 6, h / 6)
+        )
+        val unevenness = (cornerLums.max() - cornerLums.min()).toFloat()
+        val needFlat = unevenness > 28f               // 明显阴影才做背景归一化
+
+        // 提亮目标：把纸底提到 ~240，但绝不超 250（防过曝）
+        val brighten = if (needBrighten) min(1.25f, 238f / max(60f, bgLum)) else 1f
+        // 对比拉伸：对比越低拉得越多，有上限
+        val contrastGain = if (needContrast) min(1.35f, 105f / max(35f, contrast.toFloat())) else 1f
+        // 字迹加深：字越少（标题/公式题）越不能压太狠
+        val darken = if (inkRatio < 0.06f) 0.95f else 0.88f
+
+        // ---- 2) 背景光照估计（仅在光照不均时使用）----
+        val GN = 12
+        val grid: FloatArray
+        if (needFlat) {
+            grid = FloatArray(GN * GN)
+            val cnt = FloatArray(GN * GN)
+            var gy = 0
+            while (gy < h) {
+                var gx = 0
+                while (gx < w) {
+                    val p = src.getPixel(gx, gy)
+                    val lum = ((p shr 16 and 0xFF) * 299 + (p shr 8 and 0xFF) * 587 + (p and 0xFF) * 114) / 1000
+                    val gi = min(GN - 1, gy * GN / h) * GN + min(GN - 1, gx * GN / w)
+                    grid[gi] += lum
+                    cnt[gi]++
+                    gx += max(1, w / 96)
+                }
+                gy += max(1, h / 96)
             }
+            for (i in 0 until GN * GN) grid[i] = if (cnt[i] > 0) grid[i] / cnt[i] else 255f
+        } else {
+            grid = FloatArray(GN * GN) { 255f }
         }
 
-        // 2) 归一化 + 对比度曲线
+        // ---- 3) 单遍处理 ----
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val row = IntArray(w)
+        val rowOut = IntArray(w)
         for (yy in 0 until h) {
             src.getPixels(row, 0, w, 0, yy, w, 1)
             for (xx in 0 until w) {
@@ -51,28 +109,57 @@ object Enhance {
                 val r = (p shr 16 and 0xFF).toFloat()
                 val g = (p shr 8 and 0xFF).toFloat()
                 val b = (p and 0xFF).toFloat()
-                val bg = bgAt(xx, yy, w, h, grid, GN)
-                var nr = norm(r, bg[0])
-                var ng = norm(g, bg[1])
-                var nb = norm(b, bg[2])
-                // 加深字迹
-                if (nr < 120) nr *= 0.82f
-                if (ng < 120) ng *= 0.82f
-                if (nb < 120) nb *= 0.82f
-                row[xx] = (0xFF shl 24) or
+
+                // 背景归一化（仅光照不均时生效）
+                var nr = r; var ng = g; var nb = b
+                if (needFlat) {
+                    val bg = bgAt(xx, yy, w, h, grid, GN)
+                    val k = 238f / max(60f, (bg[0] + bg[1] + bg[2]) / 3f)
+                    nr = r * k.coerceIn(0.85f, 1.3f)
+                    ng = g * k.coerceIn(0.85f, 1.3f)
+                    nb = b * k.coerceIn(0.85f, 1.3f)
+                }
+
+                // 对比拉伸（围绕中点）
+                nr = (nr - 128f) * contrastGain + 128f
+                ng = (ng - 128f) * contrastGain + 128f
+                nb = (nb - 128f) * contrastGain + 128f
+
+                // 提亮
+                nr *= brighten; ng *= brighten; nb *= brighten
+
+                // 字迹加深（只压暗部，幅度自适应）
+                val lum = (nr * 299 + ng * 587 + nb * 114) / 1000f
+                if (lum < 110f) {
+                    nr *= darken; ng *= darken; nb *= darken
+                }
+
+                rowOut[xx] = (0xFF shl 24) or
                         (clamp(nr).toInt() shl 16) or
                         (clamp(ng).toInt() shl 8) or
                         clamp(nb).toInt()
             }
-            out.setPixels(row, 0, w, 0, yy, w, 1)
+            out.setPixels(rowOut, 0, w, 0, yy, w, 1)
         }
         return out
     }
 
-    private fun norm(v: Float, bg: Float): Float {
-        var n = v / max(50f, bg) * 255f
-        n = (n - 128f) * 1.18f + 128f
-        return n
+    private fun regionLum(src: Bitmap, x0: Int, y0: Int, w: Int, h: Int): Int {
+        if (w <= 0 || h <= 0) return 255
+        var sum = 0L; var n = 0
+        var y = y0
+        val step = max(1, min(w, h) / 8)
+        while (y < y0 + h && y < src.height) {
+            var x = x0
+            while (x < x0 + w && x < src.width) {
+                val p = src.getPixel(x, y)
+                sum += ((p shr 16 and 0xFF) * 299 + (p shr 8 and 0xFF) * 587 + (p and 0xFF) * 114) / 1000
+                n++
+                x += step
+            }
+            y += step
+        }
+        return if (n > 0) (sum / n).toInt() else 255
     }
 
     private fun clamp(v: Float): Float = max(0f, min(255f, v))
@@ -85,10 +172,10 @@ object Enhance {
         val fx = gx - x0; val fy = gy - y0
         val out = FloatArray(3)
         for (ch in 0..2) {
-            val g00 = grid[(y0 * GN + x0) * 3 + ch]
-            val g10 = grid[(y0 * GN + x1) * 3 + ch]
-            val g01 = grid[(y1 * GN + x0) * 3 + ch]
-            val g11 = grid[(y1 * GN + x1) * 3 + ch]
+            val g00 = grid[y0 * GN + x0]
+            val g10 = grid[y0 * GN + x1]
+            val g01 = grid[y1 * GN + x0]
+            val g11 = grid[y1 * GN + x1]
             out[ch] = (g00 * (1 - fx) + g10 * fx) * (1 - fy) + (g01 * (1 - fx) + g11 * fx) * fy
         }
         return out

@@ -75,7 +75,7 @@ fun StatsScreen() {
                 Text("科目分布", fontSize = 15.sp)
                 Spacer(Modifier.height(14.dp))
                 if (bySubject.isEmpty()) {
-                    Text("暂无数据", color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
+                    Text("暂无数据", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 } else {
                     bySubject.entries.sortedByDescending { it.value }.forEach { (s, n) ->
                         Row(verticalAlignment = Alignment.CenterVertically,
@@ -90,7 +90,7 @@ fun StatsScreen() {
                                     .clip(RoundedCornerShape(5.dp))
                                     .background(SkyPrimary))
                             }
-                            Text("$n", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline,
+                            Text("$n", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.width(32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                         }
                     }
@@ -104,7 +104,7 @@ fun StatsScreen() {
                 Text("薄弱知识点", fontSize = 15.sp)
                 Spacer(Modifier.height(8.dp))
                 if (topKp.isEmpty()) {
-                    Text("填写知识点后自动生成", color = MaterialTheme.colorScheme.outline, fontSize = 13.sp)
+                    Text("填写知识点后自动生成", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 } else {
                     topKp.forEachIndexed { i, (k, n) ->
                         Row(verticalAlignment = Alignment.CenterVertically,
@@ -120,7 +120,7 @@ fun StatsScreen() {
                             Spacer(Modifier.width(10.dp))
                             Text(k, fontSize = 13.5.sp, modifier = Modifier.weight(1f),
                                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            Text("错 $n 次", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                            Text("错 $n 次", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -136,7 +136,7 @@ private fun StatCard(label: String, value: String, color: Color, modifier: Modif
         Column(Modifier.padding(16.dp)) {
             Text(value, fontSize = 28.sp, color = color)
             Spacer(Modifier.height(2.dp))
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

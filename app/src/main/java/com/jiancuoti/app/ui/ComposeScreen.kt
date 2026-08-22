@@ -176,7 +176,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
     if (titleDialog) {
         TitleDialog(
             onClose = { titleDialog = false },
-            onConfirm = { title ->
+            onConfirm = { title, opts ->
                 titleDialog = false
                 val qs = Store.mistakes.filter { picked.contains(it.id) }
                 // 保存记录
@@ -189,7 +189,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
                 onChanged()
                 // 生成 PDF 并分享
                 scope.launch {
-                    val file = generatePaperPdf(context, title, qs)
+                    val file = generatePaperPdf(context, title, qs, opts)
                     if (file != null) {
                         try {
                             val uri = FileProvider.getUriForFile(context,
@@ -207,6 +207,13 @@ fun ComposeScreen(onChanged: () -> Unit) {
         )
     }
 }
+
+/** 导出选项 */
+data class ExportOpts(
+    val withAnswerPage: Boolean = true,   // 附答案页
+    val withKnowledge: Boolean = true,    // 打印知识点标注
+    val withAnalysis: Boolean = false     // 打印解析步骤
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,7 +266,7 @@ private fun PaperRow(p: Paper, onOpen: () -> Unit, onDelete: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(p.name, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("${p.count} 题 · ${fmtDate(p.createdAt)}", fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.outline)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = onOpen) { Text("查看") }
             IconButton(onClick = onDelete) {
@@ -338,7 +345,7 @@ private fun PickDialog(pool: List<Mistake>, initial: Set<String>,
 }
 
 @Composable
-private fun TitleDialog(onClose: () -> Unit, onConfirm: (String) -> Unit) {
+private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> Unit) {
     var title by remember { mutableStateOf("错题复习卷 ${fmtDate(System.currentTimeMillis())}") }
     Dialog(onDismissRequest = onClose) {
         Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
@@ -350,11 +357,26 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String) -> Unit) {
                     label = { Text("试卷标题") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(Modifier.height(14.dp))
+                // 导出选项
+                var withAnswerPage by remember { mutableStateOf(true) }
+                var withKnowledge by remember { mutableStateOf(true) }
+                var withAnalysis by remember { mutableStateOf(false) }
+                Text("导出内容", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                LabeledCheckbox(withAnswerPage, "附答案页（卷末汇总）") { withAnswerPage = it }
+                LabeledCheckbox(withKnowledge, "打印知识点标注") { withKnowledge = it }
+                LabeledCheckbox(withAnalysis, "打印解析步骤") { withAnalysis = it }
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onClose) { Text("取消") }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onConfirm(title.ifBlank { "错题复习卷" }) }) {
+                    Button(onClick = {
+                        onConfirm(
+                            title.ifBlank { "错题复习卷" },
+                            ExportOpts(withAnswerPage, withKnowledge, withAnalysis)
+                        )
+                    }) {
                         Text("确定并生成", color = Color.White)
                     }
                 }
@@ -363,9 +385,23 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String) -> Unit) {
     }
 }
 
-/** 原生 PDF 生成（A4：595x842pt，按 72dpi 的 2 倍绘制保证清晰） */
+@Composable
+private fun LabeledCheckbox(checked: Boolean, label: String, onChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onChange(!checked) }
+            .padding(vertical = 4.dp)
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onChange)
+        Text(label, fontSize = 13.sp)
+    }
+}
+
+/** 原生 PDF 生成（A4：595x842pt，2 倍绘制）：图片保持真实宽高比且限高，可选知识点/解析/答案页 */
 private suspend fun generatePaperPdf(
-    context: android.content.Context, title: String, qs: List<Mistake>
+    context: android.content.Context, title: String, qs: List<Mistake>, opts: ExportOpts
 ): File? = withContext(Dispatchers.IO) {
     try {
         val doc = PdfDocument()
@@ -374,71 +410,102 @@ private suspend fun generatePaperPdf(
         var page = doc.startPage(pageInfo)
         var canvas = page.canvas
         val scale = 2f
+        val marginX = 58f * scale
+        val contentW = pageW - 2 * marginX
 
-        val titlePaint = Paint().apply { textSize = 26 * scale; textAlign = Paint.Align.CENTER; isAntiAlias = true }
+        val titlePaint = Paint().apply { textSize = 26 * scale; textAlign = Paint.Align.CENTER; isAntiAlias = true; isFakeBoldText = true }
         val subPaint = Paint().apply { textSize = 11 * scale; textAlign = Paint.Align.CENTER; color = android.graphics.Color.GRAY; isAntiAlias = true }
-        val qPaint = Paint().apply { textSize = 13 * scale; isAntiAlias = true }
+        val qPaint = Paint().apply { textSize = 13 * scale; isAntiAlias = true; isFakeBoldText = true }
         val bodyPaint = Paint().apply { textSize = 12.5f * scale; isAntiAlias = true }
+        val kpPaint = Paint().apply { textSize = 10 * scale; color = android.graphics.Color.rgb(2, 100, 180); isAntiAlias = true }
         val ansPaint = Paint().apply { textSize = 12 * scale; color = android.graphics.Color.rgb(60, 60, 60); isAntiAlias = true }
-        val dashPaint = Paint().apply { color = android.graphics.Color.LTGRAY; strokeWidth = 1.5f; style = Paint.Style.STROKE }
+        val ansTitlePaint = Paint().apply { textSize = 18 * scale; isAntiAlias = true; isFakeBoldText = true }
+        val dashPaint = Paint().apply { color = android.graphics.Color.LTGRAY; strokeWidth = 1.2f; style = Paint.Style.STROKE }
 
         var y = 60f * scale
+        var pageCount = 1
+        fun newPage() {
+            doc.finishPage(page)
+            pageCount++
+            pageInfo = PdfDocument.PageInfo.Builder(pageW, pageH, pageCount).create()
+            page = doc.startPage(pageInfo)
+            canvas = page.canvas
+            y = 60f * scale
+        }
         fun newPageIfNeeded(need: Float) {
-            if (y + need > pageH - 60 * scale) {
-                doc.finishPage(page)
-                pageInfo = PdfDocument.PageInfo.Builder(pageW, pageH, pageInfo.pageNumber + 1).create()
-                page = doc.startPage(pageInfo)
-                canvas = page.canvas
-                y = 60f * scale
-            }
+            if (y + need > pageH - 58 * scale) newPage()
         }
 
         canvas.drawText(title, pageW / 2f, y, titlePaint); y += 24 * scale
         canvas.drawText("简错题自动生成 · 共 ${qs.size} 题 · ${fmtDate(System.currentTimeMillis())}",
             pageW / 2f, y, subPaint); y += 22 * scale
-        canvas.drawText("姓名：＿＿＿＿＿＿    班级：＿＿＿＿＿＿", 60 * scale, y, ansPaint); y += 26 * scale
+        canvas.drawText("姓名：＿＿＿＿＿＿    班级：＿＿＿＿＿＿    日期：＿＿＿＿＿＿",
+            marginX, y, ansPaint); y += 24 * scale
+        canvas.drawLine(marginX, y, pageW - marginX, y, dashPaint); y += 18 * scale
+
+        fun pageBreakWrapped() {
+            newPage()
+        }
 
         qs.forEachIndexed { i, q ->
-            newPageIfNeeded(120 * scale)
-            canvas.drawText("${i + 1}.（${q.subject}${if (q.knowledge.isNotBlank()) " · " + q.knowledge else ""}）",
-                60 * scale, y, qPaint); y += 20 * scale
+            newPageIfNeeded(140 * scale)
+            // 题头：题号 + 科目（知识点可选）
+            val kpTag = if (opts.withKnowledge && q.knowledge.isNotBlank()) " · ${q.knowledge}" else ""
+            canvas.drawText("${i + 1}.（${q.subject}$kpTag）", marginX, y, qPaint); y += 19 * scale
             if (q.question.isNotBlank()) {
-                y = drawWrapped(canvas, q.question, bodyPaint, 60 * scale, y, pageW - 120 * scale, pageH - 60 * scale) {
-                    doc.finishPage(page)
-                    val pi = PdfDocument.PageInfo.Builder(pageW, pageH, pageInfo.pageNumber + 1).create()
-                    page = doc.startPage(pi); canvas = page.canvas; y = 60f * scale
-                }
+                y = drawWrapped(canvas, q.question, bodyPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y += 4 * scale
             }
+            // 题图：按真实宽高比缩放，宽度上限为版心，高度上限约半页（小图题不会占满整页）
             val img = Store.imgFile(q.imageFile)
             if (img != null) {
                 try {
                     val bmp = BitmapFactory.decodeFile(img.absolutePath)
-                    if (bmp != null) {
-                        val maxW = (pageW - 140 * scale)
-                        val bw = minOf(bmp.width.toFloat(), maxW)
-                        val bh = bmp.height * bw / bmp.width
-                        newPageIfNeeded(bh + 10)
-                        canvas.drawBitmap(
-                            Bitmap.createScaledBitmap(bmp, bw.toInt(), bh.toInt(), true),
-                            70 * scale, y, null
-                        )
+                    if (bmp != null && bmp.width > 0 && bmp.height > 0) {
+                        val maxW = contentW
+                        val maxH = (pageH - 116 * scale) * 0.62f   // 限高：不超过版心高度 62%
+                        var bw = maxW
+                        var bh = bmp.height.toFloat() * bw / bmp.width
+                        if (bh > maxH) { bh = maxH; bw = bmp.width.toFloat() * bh / bmp.height }
+                        newPageIfNeeded(bh + 14 * scale)
+                        val scaled = Bitmap.createScaledBitmap(bmp, bw.toInt().coerceAtLeast(1), bh.toInt().coerceAtLeast(1), true)
+                        canvas.drawBitmap(scaled, marginX + (maxW - bw) / 2f, y, null)
                         y += bh + 12 * scale
+                        if (!bmp.isRecycled) bmp.recycle()
                     }
                 } catch (_: Exception) {}
             }
+            // 解析（可选）
+            if (opts.withAnalysis && q.analysis.isNotBlank()) {
+                y = drawWrapped(canvas, "【解析】" + q.analysis, ansPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y += 4 * scale
+            }
             // 作答区
-            newPageIfNeeded(50 * scale)
-            canvas.drawRect(60 * scale, y, pageW - 60 * scale, y + 44 * scale, dashPaint)
-            canvas.drawText("答：", 70 * scale, y + 18 * scale, ansPaint)
-            y += 56 * scale
+            newPageIfNeeded(46 * scale)
+            canvas.drawLine(marginX, y + 38 * scale, pageW - marginX, y + 38 * scale, dashPaint)
+            canvas.drawText("答：", marginX + 4 * scale, y + 16 * scale, ansPaint)
+            y += 48 * scale
+        }
+
+        // 答案页（可选）
+        if (opts.withAnswerPage && qs.any { it.answer.isNotBlank() }) {
+            newPage()
+            canvas.drawText("参考答案", pageW / 2f, y, ansTitlePaint); y += 26 * scale
+            canvas.drawLine(marginX, y, pageW - marginX, y, dashPaint); y += 16 * scale
+            qs.forEachIndexed { i, q ->
+                if (q.answer.isNotBlank()) {
+                    newPageIfNeeded(60 * scale)
+                    canvas.drawText("${i + 1}. ", marginX, y, qPaint)
+                    y = drawWrapped(canvas, q.answer, bodyPaint, marginX + 20 * scale, y, contentW - 20 * scale, pageH - 58 * scale) { pageBreakWrapped() }
+                    y += 6 * scale
+                }
+            }
         }
         doc.finishPage(page)
 
         val dir = File(context.cacheDir, "papers").apply { mkdirs() }
         val out = File(dir, "${title.take(20)}.pdf")
-        val fos = FileOutputStream(out)
-        doc.writeTo(fos)
-        fos.close()
+        FileOutputStream(out).use { doc.writeTo(it) }
         doc.close()
         out
     } catch (e: Exception) { null }

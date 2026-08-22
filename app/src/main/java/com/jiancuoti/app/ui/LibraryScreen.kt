@@ -134,7 +134,7 @@ fun LibraryScreen(onChanged: () -> Unit) {
                     Text("暂无错题", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(6.dp))
                     Text("拍摄或导入试卷后即可管理错题", fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.outline)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
@@ -188,7 +188,7 @@ fun MistakeCard(m: Mistake, onClick: () -> Unit) {
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("图", color = MaterialTheme.colorScheme.outline)
+                    Text("图", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -211,14 +211,14 @@ fun MistakeCard(m: Mistake, onClick: () -> Unit) {
                 Text(
                     m.question.ifBlank { "图片题（点击查看详情）" },
                     fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    color = if (m.question.isBlank()) MaterialTheme.colorScheme.outline
+                    color = if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                             else MaterialTheme.colorScheme.onSurface,
                     lineHeight = 19.sp
                 )
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(fmtDate(m.createdAt), fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outline)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (m.errorCount > 1) {
                         Spacer(Modifier.width(8.dp))
                         Text("错 ${m.errorCount} 次", fontSize = 11.sp, color = Red)
@@ -334,7 +334,7 @@ fun DetailDialog(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "录入 ${fmtDate(m.createdAt)} · 错误 ${m.errorCount} 次 · ${if (m.mastered) "已掌握" else "未掌握"}",
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.outline
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -463,7 +463,7 @@ private fun VariantsDialog(
                         Text(
                             listOf(subject, knowledge).filter { it.isNotBlank() }.joinToString(" · ")
                                 .ifBlank { "同考点变式题" },
-                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline,
+                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                     }

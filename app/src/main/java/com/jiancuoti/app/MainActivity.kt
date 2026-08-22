@@ -43,6 +43,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Store.init(applicationContext)
         enableEdgeToEdge()
+        // 请求支持的最高刷新率（部分设备默认 60Hz）
+        try {
+            window.attributes = window.attributes.apply {
+                preferredRefreshRate = 120f
+                preferredDisplayModeId = 0
+            }
+        } catch (_: Exception) {}
         setContent {
             var themeMode by remember {
                 mutableStateOf(
@@ -235,7 +242,10 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         // 裁剪全屏层
         if (cropFiles.isNotEmpty() && cropIndex < cropFiles.size) {
             val displayBmps = remember(cropFiles) {
-                cropFiles.map { loadBitmap(it, 1200) }
+                // 大图解码耗时，放 IO 线程避免卡主线程（120Hz 掉帧主因之一）
+                kotlinx.coroutines.runBlocking {
+                    withContext(Dispatchers.IO) { cropFiles.map { loadBitmap(it, 1200) } }
+                }
             }
             CropScreen(
                 displayBitmaps = displayBmps,
@@ -278,7 +288,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 val imgName = "m_${System.currentTimeMillis()}_${(0..999).random()}.jpg"
                                 withContext(Dispatchers.IO) {
                                     FileOutputStream(File(Store.imgDir, imgName)).use {
-                                        finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it)
+                                        finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
                                     }
                                 }
                                 // AI 解析（受「裁剪后自动解析」开关控制）；失败不丢图，留待编辑/重新解析

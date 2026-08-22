@@ -132,7 +132,7 @@ fun AlbumScreen(
             }
             if (pdfMsg.isNotBlank()) {
                 Text(pdfMsg, fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 8.dp))
             }
             if (selected.isNotEmpty()) {
@@ -144,11 +144,11 @@ fun AlbumScreen(
         }
         if (!granted) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("未授予相册权限", color = MaterialTheme.colorScheme.outline)
+                Text("未授予相册权限", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else if (items.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("相册为空", color = MaterialTheme.colorScheme.outline)
+                Text("相册为空", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyVerticalGrid(

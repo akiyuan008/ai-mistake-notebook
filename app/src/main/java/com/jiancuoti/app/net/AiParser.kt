@@ -61,8 +61,17 @@ object AiParser {
                 client.newCall(req).execute().use { resp ->
                     if (resp.code == 404) return@use  // 试下一个候选
                     if (!resp.isSuccessful) {
-                        val msg = resp.body?.string()?.take(300) ?: ""
-                        throw Exception("接口返回 ${resp.code}：${msg.ifBlank { ep }}")
+                        val raw = resp.body?.string()?.take(400) ?: ""
+                        val friendly = when (resp.code) {
+                            401 -> "API Key 无效或未填写正确"
+                            403 -> if (raw.contains("insufficient_quota") || raw.contains("quota"))
+                                       "接口免费额度已用尽（403），请到服务商控制台充值或换接口"
+                                   else "无权限（403），请检查 API Key 权限"
+                            429 -> "请求太频繁（429），请稍后再试"
+                            500, 502, 503 -> "服务商暂时不可用（${resp.code}），请稍后再试"
+                            else -> "接口返回 ${resp.code}"
+                        }
+                        throw Exception("$friendly｜${raw.take(120)}")
                     }
                     return JSONObject(resp.body!!.string())
                 }
@@ -165,6 +174,21 @@ object AiParser {
                     )
                 }.filter { it.question.isNotBlank() }
         }
+
+    /** 测试连通性：纯文本小请求，校验地址/Key/模型 */
+    suspend fun testConnection(): Unit = withContext(Dispatchers.IO) {
+        val url = Store.settings["apiUrl"] ?: throw Exception("未填接口地址")
+        val key = Store.settings["apiKey"] ?: throw Exception("未填 API Key")
+        val model = Store.settings["apiModel"].takeUnless { it.isNullOrBlank() } ?: throw Exception("未选择模型")
+        val body = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 10)
+            put("messages", JSONArray()
+                .put(JSONObject().put("role", "user").put("content", "回复：OK")))
+        }.toString()
+        val data = postChat(url, key, body)
+        if (data.extractContent().isBlank()) throw Exception("接口有响应但内容为空")
+    }
 
     /** 从接口拉取模型列表 */
     suspend fun fetchModels(): List<String> = withContext(Dispatchers.IO) {
