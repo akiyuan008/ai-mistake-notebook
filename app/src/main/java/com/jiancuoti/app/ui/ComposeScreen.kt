@@ -89,10 +89,9 @@ fun ComposeScreen(onChanged: () -> Unit) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         // 抽题条件
-        Card(
+        GlassCard(
             Modifier.fillMaxWidth().padding(top = 8.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            shape = RoundedCornerShape(24.dp)
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("抽题条件设置", fontSize = 15.sp)
@@ -229,10 +228,9 @@ private fun MenuField(value: String, options: List<String>, label: String,
 
 @Composable
 private fun BigAction(icon: @Composable () -> Unit, title: String, sub: String, onClick: () -> Unit) {
-    Card(
+    GlassCard(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(24.dp)
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -251,8 +249,7 @@ private fun BigAction(icon: @Composable () -> Unit, title: String, sub: String, 
 
 @Composable
 private fun PaperRow(p: Paper, onOpen: () -> Unit, onDelete: () -> Unit) {
-    Card(shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    GlassCard(shape = RoundedCornerShape(20.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

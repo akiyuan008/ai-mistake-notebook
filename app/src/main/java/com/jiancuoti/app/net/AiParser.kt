@@ -20,6 +20,14 @@ data class ParseResult(
     val by: String
 )
 
+/** 举一反三的变式题 */
+data class VariantQuestion(
+    val question: String,
+    val answer: String,
+    val hint: String,
+    val difficulty: Int
+)
+
 object AiParser {
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -79,6 +87,61 @@ object AiParser {
             )
         }
     }
+
+    /** 举一反三：基于原题生成 2-3 道同考点变式题（含答案与提示） */
+    suspend fun variants(subject: String, knowledge: String, question: String, answer: String): List<VariantQuestion> =
+        withContext(Dispatchers.IO) {
+            if (!configured) return@withContext emptyList()
+            val url = Store.settings["apiUrl"]!!
+            val key = Store.settings["apiKey"]!!
+            val model = Store.settings["apiModel"].takeUnless { it.isNullOrBlank() } ?: "gpt-4o-mini"
+
+            val prompt = """
+                你是错题复习助手。下面是一道学生的错题：
+                科目：$subject
+                知识点：$knowledge
+                题干：${question.ifBlank { "（图片题，见描述）" }}
+                答案：$answer
+
+                请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
+                只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
+                question(新题干)、answer(参考答案)、hint(一句话思路提示)、difficulty(1到3的整数)。
+            """.trimIndent()
+
+            val body = JSONObject().apply {
+                put("model", model)
+                put("max_tokens", 1600)
+                put("messages", JSONArray()
+                    .put(JSONObject().put("role", "system")
+                        .put("content", "你是出题专家，只输出 JSON 数组，不要任何解释。"))
+                    .put(JSONObject().put("role", "user").put("content", prompt)))
+            }.toString()
+
+            val req = Request.Builder().url(url)
+                .header("Authorization", "Bearer $key")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+            try {
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) throw Exception("接口返回 ${resp.code}")
+                    val data = JSONObject(resp.body!!.string())
+                    var text = data.optJSONArray("choices")?.optJSONObject(0)
+                        ?.optJSONObject("message")?.optString("content") ?: ""
+                    text = text.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+                    val m = Regex("\\[[\\s\\S]*\\]").find(text) ?: throw Exception("返回无法解析")
+                    val arr = JSONArray(m.value)
+                    (0 until arr.length()).mapNotNull { i ->
+                        val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                        VariantQuestion(
+                            question = o.optString("question"),
+                            answer = o.optString("answer"),
+                            hint = o.optString("hint"),
+                            difficulty = o.optInt("difficulty", 1).coerceIn(1, 3)
+                        )
+                    }.filter { it.question.isNotBlank() }
+                }
+            } catch (e: Exception) { emptyList() }
+        }
 
     /** 从接口拉取模型列表 */
     suspend fun fetchModels(): List<String> = withContext(Dispatchers.IO) {

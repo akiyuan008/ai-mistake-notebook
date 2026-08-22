@@ -85,7 +85,7 @@ fun CameraScreen(
         Box(
             Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.66f)
                 .align(Alignment.Center)
-                .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
         ) {
             Text(
                 "将试卷放入框内，保持平整",
@@ -95,25 +95,6 @@ fun CameraScreen(
                     .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(50))
                     .padding(horizontal = 14.dp, vertical = 4.dp)
             )
-        }
-
-        // 顶部：相册入口
-        Row(
-            Modifier.fillMaxWidth().align(Alignment.TopCenter)
-                .statusBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.35f))
-                    .clickableNoRipple(onClick = onOpenAlbum)
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Icon(Icons.Default.PhotoLibrary, null, tint = Color.White,
-                    modifier = Modifier.size(20.dp))
-                Text("相册", color = Color.White, fontSize = 10.5.sp)
-            }
         }
 
         // 底部控制区
@@ -135,8 +116,8 @@ fun CameraScreen(
                             model = f,
                             contentDescription = null,
                             modifier = Modifier.size(50.dp, 66.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                         )
                     }
                 }
@@ -152,9 +133,23 @@ fun CameraScreen(
                 TabPill("多页", singleMode) { singleMode = true }
             }
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 28.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // 左下角：相册入口（玻璃质感）
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+                        .clickableNoRipple(onClick = onOpenAlbum)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, null, tint = Color.White,
+                        modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.height(2.dp))
+                    Text("相册", color = Color.White, fontSize = 10.5.sp)
+                }
                 Spacer(Modifier.weight(1f))
                 // 快门
                 Button(
@@ -177,6 +172,8 @@ fun CameraScreen(
                     contentPadding = PaddingValues(0.dp)
                 ) {}
                 Spacer(Modifier.weight(1f))
+                // 占位，保持快门居中
+                Spacer(Modifier.size(64.dp))
             }
             if (!singleMode && shots.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))

@@ -69,8 +69,7 @@ fun StatsScreen() {
         }
         Spacer(Modifier.height(14.dp))
 
-        Card(shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        GlassCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.padding(18.dp)) {
                 Text("科目分布", fontSize = 15.sp)
                 Spacer(Modifier.height(14.dp))
@@ -99,8 +98,7 @@ fun StatsScreen() {
         }
         Spacer(Modifier.height(14.dp))
 
-        Card(shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        GlassCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.padding(18.dp)) {
                 Text("薄弱知识点", fontSize = 15.sp)
                 Spacer(Modifier.height(8.dp))
@@ -133,8 +131,7 @@ fun StatsScreen() {
 
 @Composable
 private fun StatCard(label: String, value: String, color: Color, modifier: Modifier) {
-    Card(modifier, shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    GlassCard(modifier, shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text(value, fontSize = 28.sp, color = color)
             Spacer(Modifier.height(2.dp))

@@ -87,18 +87,25 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val bgTop = if (dark) Color(0xFF0E1621) else Color(0xFFEAF6FF)
-    val bgBottom = if (dark) Color(0xFF131E2E) else Color(0xFFD8ECFC)
+    val bgTop = if (dark) Color(0xFF0A111C) else Color(0xFFEAF6FF)
+    val bgBottom = if (dark) Color(0xFF132338) else Color(0xFFD8ECFC)
 
     Box(
         Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(bgTop, bgBottom)))
     ) {
-        // 装饰光斑
+        // 装饰光斑（深色下更亮，制造层次）
         Box(Modifier.size(300.dp).offset(x = 200.dp, y = (-100).dp)
             .background(
                 Brush.radialGradient(listOf(
-                    if (dark) Color(0xFF1E3A5F).copy(alpha = 0.5f) else Color(0xFF7DD3FC).copy(alpha = 0.35f),
+                    if (dark) Color(0xFF2C5A88).copy(alpha = 0.45f) else Color(0xFF7DD3FC).copy(alpha = 0.35f),
+                    Color.Transparent)),
+                CircleShape
+            ))
+        Box(Modifier.size(260.dp).offset(x = (-120).dp, y = 500.dp)
+            .background(
+                Brush.radialGradient(listOf(
+                    if (dark) Color(0xFF1B4666).copy(alpha = 0.35f) else Color(0xFFBAE6FD).copy(alpha = 0.3f),
                     Color.Transparent)),
                 CircleShape
             ))
@@ -106,11 +113,19 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                NavigationBar(
-                    containerColor = if (dark) Color(0xFF16202E).copy(alpha = 0.92f)
-                                     else Color.White.copy(alpha = 0.8f),
-                    tonalElevation = 0.dp
-                ) {
+                Column {
+                    // 玻璃导航栏顶部高光描边
+                    Box(
+                        Modifier.fillMaxWidth().height(1.dp).background(
+                            if (dark) Color(0xFFBFE0F5).copy(alpha = 0.14f)
+                            else Color.White.copy(alpha = 0.6f)
+                        )
+                    )
+                    NavigationBar(
+                        containerColor = if (dark) Color(0xFF101A27).copy(alpha = 0.88f)
+                                         else Color.White.copy(alpha = 0.72f),
+                        tonalElevation = 0.dp
+                    ) {
                     val items: List<Triple<String, ImageVector, Int>> = listOf(
                         Triple("错题库", Icons.Default.Book, 0),
                         Triple("组卷", Icons.Default.Assignment, 1),
@@ -146,6 +161,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 label = { Text(label, fontSize = 10.5.sp) }
                             )
                         }
+                    }
                     }
                 }
             }

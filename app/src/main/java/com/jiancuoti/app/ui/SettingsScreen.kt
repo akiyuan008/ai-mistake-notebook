@@ -1,17 +1,29 @@
 package com.jiancuoti.app.ui
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.jiancuoti.app.data.Store
 import com.jiancuoti.app.net.AiParser
@@ -32,14 +44,21 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var syncStatus by remember { mutableStateOf(if (Supabase.configured) "已配置" else "未配置") }
     var enhance by remember { mutableStateOf(Store.settings["enhance"] != "0") }
 
+    // 模型选择列表
+    var modelPicker by remember { mutableStateOf(false) }
+    var models by remember { mutableStateOf<List<String>>(emptyList()) }
+    var modelsLoading by remember { mutableStateOf(false) }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp)
+            .padding(horizontal = 16.dp)
     ) {
+        Spacer(Modifier.height(10.dp))
+
         // 外观
         SettingsCard("外观") {
             Text("深色模式", fontSize = 13.5.sp)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 mapOf("自动" to ThemeMode.AUTO, "浅色" to ThemeMode.LIGHT, "深色" to ThemeMode.DARK)
                     .forEach { (label, mode) ->
@@ -54,13 +73,13 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             Text("「自动」跟随系统设置", fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.outline)
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         // Supabase
         SettingsCard("Supabase 云同步") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("当前：$syncStatus", fontSize = 13.sp,
-                    color = if (syncStatus == "已配置" || syncStatus == "已连接") Green else MaterialTheme.colorScheme.outline,
+                    color = if (syncStatus == "已配置" || syncStatus.startsWith("已连接")) Green else MaterialTheme.colorScheme.outline,
                     modifier = Modifier.weight(1f))
             }
             if (supaUrl.isBlank()) {
@@ -96,11 +115,11 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         // AI 解析
         SettingsCard("AI 解析配置") {
-            Text("填写 OpenAI 兼容多模态接口即可自动识题", fontSize = 12.sp,
+            Text("填写 OpenAI 兼容多模态接口即可自动识题、举一反三", fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.outline)
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(value = apiUrl, onValueChange = { apiUrl = it },
@@ -108,29 +127,33 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 placeholder = { Text("https://api.openai.com/v1/chat/completions", fontSize = 12.sp) },
                 singleLine = true)
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = apiKey, onValueChange = { apiKey = it },
-                    label = { Text("API Key") }, modifier = Modifier.weight(1f), singleLine = true)
-            }
+            OutlinedTextField(value = apiKey, onValueChange = { apiKey = it },
+                label = { Text("API Key") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = apiModel, onValueChange = { apiModel = it },
                     label = { Text("模型") }, modifier = Modifier.weight(1f), singleLine = true)
-                OutlinedButton(onClick = {
+                Button(onClick = {
                     Store.settings["apiUrl"] = apiUrl.trim()
                     Store.settings["apiKey"] = apiKey.trim()
                     Store.saveSettings()
-                    modelStatus = "获取中…"
+                    models = emptyList()
+                    modelsLoading = true
+                    modelPicker = true
                     scope.launch {
-                        val models = AiParser.fetchModels()
-                        modelStatus = if (models.isEmpty()) "未找到模型列表"
-                        else "共 ${models.size} 个，已选前项填入"
-                        if (models.isNotEmpty()) apiModel = models.first { it.contains("vl") || it.contains("vision") || it.contains("gpt-4o") } 
+                        val list = AiParser.fetchModels()
+                        models = list
+                        modelsLoading = false
+                        modelStatus = if (list.isEmpty()) "未获取到模型列表，可手动填写"
+                        else "共 ${list.size} 个模型可选"
                     }
-                }) { Text("获取\n列表", fontSize = 11.sp) }
+                }) { Text("选择模型", color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp) }
             }
+            Text("当前模型：${apiModel.ifBlank { "未选择（默认 gpt-4o-mini）" }}",
+                fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (modelStatus.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(modelStatus, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline)
             }
             Spacer(Modifier.height(10.dp))
@@ -140,9 +163,11 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 Store.settings["apiModel"] = apiModel.trim()
                 Store.saveSettings()
                 modelStatus = "已保存"
-            }) { Text("保存配置", color = androidx.compose.ui.graphics.Color.White) }
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text("保存配置", color = androidx.compose.ui.graphics.Color.White)
+            }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         // 提取选项
         SettingsCard("提取选项") {
@@ -159,7 +184,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 })
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         // 数据
         SettingsCard("数据管理") {
@@ -189,19 +214,133 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     contentColor = MaterialTheme.colorScheme.error)) { Text("清空数据") }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         SettingsCard("关于") {
-            Text("简错题 v5.1 · 原生版", fontSize = 13.sp)
+            Text("简错题 v5.2 · 原生版", fontSize = 13.sp)
         }
         Spacer(Modifier.height(100.dp))
     }
+
+    if (modelPicker) {
+        ModelPickerDialog(
+            models = models,
+            loading = modelsLoading,
+            current = apiModel,
+            onPick = { apiModel = it; modelPicker = false },
+            onClose = { modelPicker = false }
+        )
+    }
 }
 
+/** 模型选择弹窗：可搜索 + 单选列表 */
+@Composable
+private fun ModelPickerDialog(
+    models: List<String>,
+    loading: Boolean,
+    current: String,
+    onPick: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    var kw by remember { mutableStateOf("") }
+    val filtered = remember(kw, models) {
+        if (kw.isBlank()) models else models.filter { it.contains(kw, ignoreCase = true) }
+    }
+    Dialog(onDismissRequest = onClose) {
+        Surface(
+            Modifier.fillMaxWidth().fillMaxHeight(0.82f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("选择模型", fontSize = 16.sp)
+                        Text(
+                            if (loading) "正在获取模型列表…"
+                            else if (models.isEmpty()) "未获取到列表，可关闭后手动填写"
+                            else "${filtered.size} / ${models.size} 个模型",
+                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
+                }
+                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                // 搜索框
+                Surface(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        BasicTextField(
+                            value = kw, onValueChange = { kw = it },
+                            singleLine = true,
+                            textStyle = TextStyle(fontSize = 13.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.padding(vertical = 10.dp).weight(1f),
+                            decorationBox = { inner ->
+                                if (kw.isBlank()) Text("搜索模型名称…", fontSize = 13.5.sp,
+                                    color = MaterialTheme.colorScheme.outline)
+                                inner()
+                            }
+                        )
+                        if (kw.isNotBlank()) {
+                            Icon(Icons.Default.Close, null,
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(16.dp).clickable { kw = "" })
+                        }
+                    }
+                }
+                when {
+                    loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    filtered.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(if (models.isEmpty()) "列表为空" else "无匹配模型",
+                            color = MaterialTheme.colorScheme.outline)
+                    }
+                    else -> LazyColumn(Modifier.weight(1f)) {
+                        items(filtered, key = { it }) { m ->
+                            val selected = m == current
+                            Row(
+                                Modifier.fillMaxWidth()
+                                    .clickable { onPick(m) }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(m, fontSize = 13.sp, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f))
+                                if (selected) {
+                                    Icon(Icons.Default.Check, null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 统一的玻璃拟态设置卡片：全圆角、无棱角、规格一致 */
 @Composable
 private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    GlassCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp)) {
         Column(Modifier.padding(18.dp)) {
             Text(title, fontSize = 15.sp)
             Spacer(Modifier.height(10.dp))

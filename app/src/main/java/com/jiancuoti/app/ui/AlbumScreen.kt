@@ -120,13 +120,13 @@ fun AlbumScreen(
                     val on = selected.contains(item.id)
                     Box(
                         modifier = Modifier.aspectRatio(1f)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(18.dp))
                             .border(
-                                if (on) 3.dp else 0.dp,
-                                if (on) SkyPrimary else Color.Transparent,
-                                RoundedCornerShape(8.dp)
+                                if (on) 3.dp else 1.dp,
+                                if (on) SkyPrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                RoundedCornerShape(18.dp)
                             )
-                            .background(Color(0xFFE8F1F8))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         AsyncImage(
                             model = item.uri,
@@ -152,7 +152,9 @@ fun AlbumScreen(
             }
             Surface(
                 Modifier.fillMaxWidth().navigationBarsPadding(),
-                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+                color = glassColor(),
+                border = glassBorder(),
                 shadowElevation = 8.dp
             ) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -165,6 +167,7 @@ fun AlbumScreen(
                             onConfirm(items.filter { selected.contains(it.id) }.map { it.uri })
                         },
                         enabled = selected.isNotEmpty(),
+                        shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
                     ) {
                         Text("导入 (${selected.size})", color = Color.White)
