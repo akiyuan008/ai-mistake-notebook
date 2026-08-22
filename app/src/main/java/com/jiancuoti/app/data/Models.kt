@@ -12,9 +12,10 @@ data class Mistake(
     var errorCount: Int = 1,
     var mastered: Boolean = false,
     var parsedBy: String = "manual",
+    var parsing: Boolean = false,      // 后台 AI 解析进行中
     val createdAt: Long = System.currentTimeMillis(),
     var updatedAt: Long = System.currentTimeMillis()
-)
+) : com.jiancuoti.app.net.MistakeLike
 
 /** 试卷（组卷记录） */
 data class Paper(

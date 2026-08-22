@@ -108,6 +108,7 @@ fun GlassCard(
         modifier = modifier,
         shape = shape,
         color = glassColor(),
+        contentColor = MaterialTheme.colorScheme.onSurface,
         border = glassBorder(),
         shadowElevation = 0.dp,
         tonalElevation = 0.dp

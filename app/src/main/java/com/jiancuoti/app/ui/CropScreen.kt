@@ -1,18 +1,23 @@
 package com.jiancuoti.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -51,6 +56,7 @@ private sealed class DragTarget {
     data class Move(val quad: QuadState) : DragTarget()
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 /**
  * 框选页（高性能单画布版本）：
  * - 只有一个 Canvas 绘制全部选区/手柄/遮罩，拖动只改 SnapshotStateList，不重建列表
@@ -61,7 +67,7 @@ private sealed class DragTarget {
 fun CropScreen(
     displayBitmaps: List<Bitmap>,
     pageIndex: Int,
-    onExtract: (List<List<CropPart>>) -> Unit,
+    onExtract: (List<List<CropPart>>, List<Float>) -> Unit,
     onSwitchPage: (Int) -> Unit,
     onBack: () -> Unit
 ) {
@@ -74,7 +80,20 @@ fun CropScreen(
     val handleRadius = with(density) { 7.dp.toPx() }
     var dragTarget by remember { mutableStateOf<DragTarget?>(null) }
 
-    val bitmap = displayBitmaps[pageIndex]
+    // 旋转：每页的角度（点按90°步进；长按进入自由角度调节）
+    var rotations by remember { mutableStateOf(List(displayBitmaps.size) { 0f }) }
+    var freeRotate by remember { mutableStateOf(false) }
+    var freeAngle by remember { mutableStateOf(0f) }
+
+    // 当前页旋转后的展示图
+    val bitmap = remember(pageIndex, rotations) {
+        val b = displayBitmaps[pageIndex]
+        val ang = rotations[pageIndex]
+        if (ang % 360f != 0f) {
+            val m = android.graphics.Matrix().apply { postRotate(ang) }
+            Bitmap.createBitmap(b, 0, 0, b.width, b.height, m, true)
+        } else b
+    }
 
     // 初始给当前页一个选区
     LaunchedEffect(pageIndex) {
@@ -102,12 +121,69 @@ fun CropScreen(
                 color = Color.White, fontSize = 14.sp
             )
             Spacer(Modifier.weight(1f))
+            // 旋转：点按90°步进，长按自由角度
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .combinedClickable(
+                        onClick = {
+                            rotations = rotations.toMutableList().also {
+                                it[pageIndex] = ((it[pageIndex] + 90f) % 360f)
+                            }
+                        },
+                        onLongClick = {
+                            freeAngle = rotations[pageIndex]
+                            freeRotate = true
+                        }
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.RotateRight, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("旋转", color = Color.White, fontSize = 13.sp)
+                }
+            }
             TextButton(onClick = {
                 quads = quads + QuadState(nextId++, pageIndex, mutableStateListOf(
                     Offset(0.25f, 0.55f), Offset(0.75f, 0.55f),
                     Offset(0.75f, 0.85f), Offset(0.25f, 0.85f)
                 ))
             }) { Text("+选区", color = Color.White) }
+        }
+
+        // 自由角度调节面板
+        if (freeRotate) {
+            Surface(
+                color = Color(0xEE1A2534),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("自由旋转：${(freeAngle % 360f + 360f) % 360f}°", color = Color.White, fontSize = 13.sp)
+                    Slider(
+                        value = freeAngle,
+                        onValueChange = {
+                            freeAngle = it
+                            rotations = rotations.toMutableList().also { l -> l[pageIndex] = it }
+                        },
+                        valueRange = 0f..360f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { freeRotate = false }, modifier = Modifier.weight(1f)) {
+                            Text("完成", color = Color.White)
+                        }
+                        OutlinedButton(onClick = {
+                            freeAngle = 0f
+                            rotations = rotations.toMutableList().also { l -> l[pageIndex] = 0f }
+                        }, modifier = Modifier.weight(1f)) {
+                            Text("复位", color = Color.White)
+                        }
+                    }
+                }
+            }
         }
 
         if (stitching) {
@@ -325,7 +401,7 @@ fun CropScreen(
                                 qs.sortedWith(compareBy({ it.page }, { it.pts.minOf { p -> p.y } }))
                                     .map { CropPart(it.page, it.pts.toList()) }
                             }
-                        onExtract(singles + grouped)
+                        onExtract(singles + grouped, rotations)
                     },
                     modifier = Modifier.weight(2f),
                     colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
@@ -361,3 +437,4 @@ private fun pointInQuadN(p: Offset, pts: List<Offset>): Boolean {
     }
     return inside
 }
+

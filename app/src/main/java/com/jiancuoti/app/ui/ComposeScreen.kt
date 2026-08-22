@@ -187,8 +187,26 @@ fun ComposeScreen(onChanged: () -> Unit) {
                 )
                 Store.papers.add(0, paper); Store.savePapers()
                 onChanged()
-                // 生成 PDF 并分享
+                // 生成并分享
                 scope.launch {
+                    if (opts.imagesOnly) {
+                        // 仅导出题目图片
+                        val imgs = qs.mapNotNull { Store.imgFile(it.imageFile) }
+                        if (imgs.isEmpty()) { toast = "所选题目没有图片"; return@launch }
+                        try {
+                            val uris = ArrayList<android.net.Uri>(imgs.map {
+                                FileProvider.getUriForFile(context,
+                                    "${context.packageName}.fileprovider", it)
+                            })
+                            val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = "image/jpeg"
+                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "导出题目图片"))
+                        } catch (e: Exception) { toast = "导出失败：${e.message}" }
+                        return@launch
+                    }
                     val file = generatePaperPdf(context, title, qs, opts)
                     if (file != null) {
                         try {
@@ -212,7 +230,8 @@ fun ComposeScreen(onChanged: () -> Unit) {
 data class ExportOpts(
     val withAnswerPage: Boolean = true,   // 附答案页
     val withKnowledge: Boolean = true,    // 打印知识点标注
-    val withAnalysis: Boolean = false     // 打印解析步骤
+    val withAnalysis: Boolean = false,    // 打印解析步骤
+    val imagesOnly: Boolean = false       // 仅导出题目图片
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -362,11 +381,15 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> 
                 var withAnswerPage by remember { mutableStateOf(true) }
                 var withKnowledge by remember { mutableStateOf(true) }
                 var withAnalysis by remember { mutableStateOf(false) }
+                var imagesOnly by remember { mutableStateOf(false) }
                 Text("导出内容", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
-                LabeledCheckbox(withAnswerPage, "附答案页（卷末汇总）") { withAnswerPage = it }
-                LabeledCheckbox(withKnowledge, "打印知识点标注") { withKnowledge = it }
-                LabeledCheckbox(withAnalysis, "打印解析步骤") { withAnalysis = it }
+                LabeledCheckbox(imagesOnly, "仅导出题目图片（多图分享）") { imagesOnly = it }
+                if (!imagesOnly) {
+                    LabeledCheckbox(withAnswerPage, "附答案页（卷末汇总）") { withAnswerPage = it }
+                    LabeledCheckbox(withKnowledge, "打印知识点标注") { withKnowledge = it }
+                    LabeledCheckbox(withAnalysis, "打印解析步骤") { withAnalysis = it }
+                }
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onClose) { Text("取消") }
@@ -374,7 +397,12 @@ private fun TitleDialog(onClose: () -> Unit, onConfirm: (String, ExportOpts) -> 
                     Button(onClick = {
                         onConfirm(
                             title.ifBlank { "错题复习卷" },
-                            ExportOpts(withAnswerPage, withKnowledge, withAnalysis)
+                            ExportOpts(
+                                withAnswerPage = !imagesOnly && withAnswerPage,
+                                withKnowledge = !imagesOnly && withKnowledge,
+                                withAnalysis = !imagesOnly && withAnalysis,
+                                imagesOnly = imagesOnly
+                            )
                         )
                     }) {
                         Text("确定并生成", color = Color.White)
@@ -448,29 +476,29 @@ private suspend fun generatePaperPdf(
         }
 
         qs.forEachIndexed { i, q ->
-            newPageIfNeeded(140 * scale)
+            newPageIfNeeded(90 * scale)
             // 题头：题号 + 科目（知识点可选）
             val kpTag = if (opts.withKnowledge && q.knowledge.isNotBlank()) " · ${q.knowledge}" else ""
-            canvas.drawText("${i + 1}.（${q.subject}$kpTag）", marginX, y, qPaint); y += 19 * scale
+            canvas.drawText("${i + 1}.（${q.subject}$kpTag）", marginX, y, qPaint); y += 16 * scale
             if (q.question.isNotBlank()) {
                 y = drawWrapped(canvas, q.question, bodyPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
-                y += 4 * scale
+                y += 3 * scale
             }
-            // 题图：按真实宽高比缩放，宽度上限为版心，高度上限约半页（小图题不会占满整页）
+            // 题图：按真实宽高比缩放；高度上限约版心 30%（紧凑排版：大题约3道/页、小题约7道/页）
             val img = Store.imgFile(q.imageFile)
             if (img != null) {
                 try {
                     val bmp = BitmapFactory.decodeFile(img.absolutePath)
                     if (bmp != null && bmp.width > 0 && bmp.height > 0) {
-                        val maxW = contentW
-                        val maxH = (pageH - 116 * scale) * 0.62f   // 限高：不超过版心高度 62%
+                        val maxW = contentW * 0.9f
+                        val maxH = (pageH - 116 * scale) * 0.30f
                         var bw = maxW
                         var bh = bmp.height.toFloat() * bw / bmp.width
                         if (bh > maxH) { bh = maxH; bw = bmp.width.toFloat() * bh / bmp.height }
-                        newPageIfNeeded(bh + 14 * scale)
+                        newPageIfNeeded(bh + 10 * scale)
                         val scaled = Bitmap.createScaledBitmap(bmp, bw.toInt().coerceAtLeast(1), bh.toInt().coerceAtLeast(1), true)
-                        canvas.drawBitmap(scaled, marginX + (maxW - bw) / 2f, y, null)
-                        y += bh + 12 * scale
+                        canvas.drawBitmap(scaled, marginX + (contentW - bw) / 2f, y, null)
+                        y += bh + 9 * scale
                         if (!bmp.isRecycled) bmp.recycle()
                     }
                 } catch (_: Exception) {}
@@ -478,13 +506,13 @@ private suspend fun generatePaperPdf(
             // 解析（可选）
             if (opts.withAnalysis && q.analysis.isNotBlank()) {
                 y = drawWrapped(canvas, "【解析】" + q.analysis, ansPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
-                y += 4 * scale
+                y += 3 * scale
             }
-            // 作答区
-            newPageIfNeeded(46 * scale)
-            canvas.drawLine(marginX, y + 38 * scale, pageW - marginX, y + 38 * scale, dashPaint)
-            canvas.drawText("答：", marginX + 4 * scale, y + 16 * scale, ansPaint)
-            y += 48 * scale
+            // 作答区（紧凑：两行书写线）
+            newPageIfNeeded(36 * scale)
+            canvas.drawLine(marginX, y + 30 * scale, pageW - marginX, y + 30 * scale, dashPaint)
+            canvas.drawText("答：", marginX + 4 * scale, y + 14 * scale, ansPaint)
+            y += 36 * scale
         }
 
         // 答案页（可选）

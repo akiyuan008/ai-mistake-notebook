@@ -51,17 +51,27 @@ fun LibraryScreen(onChanged: () -> Unit) {
     var kw by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("全部") }
     var status by remember { mutableStateOf("全部") }
+    var timeRange by remember { mutableStateOf("全部") }
     var detail by remember { mutableStateOf<Mistake?>(null) }
     var editing by remember { mutableStateOf<Mistake?>(null) }
-    var version by remember { mutableStateOf(0) }
+    var version by remember { mutableIntStateOf(0) }
 
-    val list = remember(kw, subject, status, version) {
+    val list = remember(kw, subject, status, timeRange, version) {
+        val timeStart = when (timeRange) {
+            "近1天" -> System.currentTimeMillis() - 1L * 86400000
+            "近7天" -> System.currentTimeMillis() - 7L * 86400000
+            "近1月" -> System.currentTimeMillis() - 30L * 86400000
+            "近3月" -> System.currentTimeMillis() - 90L * 86400000
+            else -> 0L
+        }
         Store.mistakes.filter { m ->
             (subject == "全部" || m.subject == subject) &&
+            m.createdAt >= timeStart &&
             when (status) {
                 "未掌握" -> !m.mastered
                 "已掌握" -> m.mastered
                 "高频错题" -> m.errorCount >= 2
+                "解析中" -> m.parsing
                 else -> true
             } &&
             (kw.isBlank() || (m.question + m.answer + m.analysis + m.knowledge)
@@ -104,11 +114,24 @@ fun LibraryScreen(onChanged: () -> Unit) {
         // 状态筛选
         Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 6.dp)
             .horizontalScroll(rememberScrollState())) {
-            listOf("全部", "未掌握", "已掌握", "高频错题").forEach { s ->
+            listOf("全部", "未掌握", "已掌握", "高频错题", "解析中").forEach { s ->
                 FilterChip(
                     selected = status == s,
                     onClick = { status = s },
                     label = { Text(s, fontSize = 12.sp) },
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+            }
+        }
+
+        // 时间筛选
+        Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp)
+            .horizontalScroll(rememberScrollState())) {
+            listOf("全部", "近1天", "近7天", "近1月", "近3月").forEach { t ->
+                FilterChip(
+                    selected = timeRange == t,
+                    onClick = { timeRange = t },
+                    label = { Text(t, fontSize = 12.sp) },
                     modifier = Modifier.padding(end = 6.dp)
                 )
             }
@@ -209,9 +232,10 @@ fun MistakeCard(m: Mistake, onClick: () -> Unit) {
                 }
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    m.question.ifBlank { "图片题（点击查看详情）" },
+                    if (m.parsing) "AI 解析生成中…" else m.question.ifBlank { "图片题（点击查看详情）" },
                     fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    color = if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (m.parsing) MaterialTheme.colorScheme.primary
+                            else if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                             else MaterialTheme.colorScheme.onSurface,
                     lineHeight = 19.sp
                 )
@@ -245,7 +269,7 @@ fun DetailDialog(
 ) {
     val scope = rememberCoroutineScope()
     val imgFile = Store.imgFile(m.imageFile)
-    var variants by remember { mutableStateOf<List<com.jiancuoti.app.net.VariantQuestion>?>(null) }
+    var showVariants by remember { mutableStateOf(true) }
     var aiBusy by remember { mutableStateOf(false) }
     var aiMsg by remember { mutableStateOf("") }
 
@@ -283,6 +307,21 @@ fun DetailDialog(
                                 .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Fit
                         )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    if (m.parsing) {
+                        // 后台解析中提示
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                    RoundedCornerShape(14.dp))
+                                .padding(12.dp)) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text("AI 解析生成中…完成本题后自动更新，可关闭本页",
+                                fontSize = 12.5.sp, color = MaterialTheme.colorScheme.primary)
+                        }
                         Spacer(Modifier.height(12.dp))
                     }
                     if (m.question.isNotBlank()) Section("题干") { Text(m.question, fontSize = 14.sp, lineHeight = 22.sp) }
@@ -338,10 +377,31 @@ fun DetailDialog(
                     )
                 }
                 Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                // AI 操作区：重新解析 + 举一反三
-                if (aiMsg.isNotBlank()) {
-                    Text(aiMsg, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
+                // AI 操作区：重新解析 + 举一反三（均后台运行，关闭弹窗不中断）
+                val vBusy = com.jiancuoti.app.net.BgTasks.variantsBusy[m.id] == true
+                val vErr = com.jiancuoti.app.net.BgTasks.variantsError[m.id]
+                val vDone = com.jiancuoti.app.net.BgTasks.variants[m.id]
+                var preferReal by remember { mutableStateOf(true) }
+                val aiMsg2 = when {
+                    vBusy -> "变式题后台生成中…可关闭本页"
+                    vErr != null -> vErr
+                    aiMsg.isNotBlank() -> aiMsg
+                    else -> ""
+                }
+                if (aiMsg2.isNotBlank()) {
+                    Text(aiMsg2, fontSize = 12.sp,
+                        color = if (vErr != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp))
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("优先匹配近年真题", fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f))
+                    Switch(checked = preferReal, onCheckedChange = { preferReal = it })
                 }
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -355,21 +415,24 @@ fun DetailDialog(
                             if (!com.jiancuoti.app.net.AiParser.configured) {
                                 aiMsg = "请先在「我的」页配置 AI 解析接口"; return@OutlinedButton
                             }
-                            aiBusy = true; aiMsg = "AI 解析中…"
-                            scope.launch {
+                            aiBusy = true; aiMsg = "AI 解析中…（关闭本页不中断）"
+                            com.jiancuoti.app.net.BgTasks.scope.launch {
                                 try {
-                                    val r = com.jiancuoti.app.net.AiParser.parse(loadBitmap(f, 1600))
+                                    val bmp = withContext(kotlinx.coroutines.Dispatchers.IO) { loadBitmap(f, 1600) }
+                                    val r = com.jiancuoti.app.net.AiParser.parse(bmp)
                                     m.subject = r.subject; m.knowledge = r.knowledge
                                     m.question = r.question; m.answer = r.answer
                                     m.analysis = r.analysis; m.parsedBy = "api"
+                                    m.parsing = false
                                     m.updatedAt = System.currentTimeMillis()
                                     Store.saveMistakes()
-                                    scope.launch { Supabase.pushMistake(m) }
-                                    aiMsg = "解析完成"
+                                    withContext(kotlinx.coroutines.Dispatchers.IO) { Supabase.pushMistake(m) }
+                                    aiBusy = false
                                     onChanged()
                                 } catch (e: Exception) {
-                                    aiMsg = "解析失败：${e.message}"
-                                } finally { aiBusy = false }
+                                    aiBusy = false
+                                    aiMsg = "解析失败：${e.message?.take(90)}"
+                                }
                             }
                         },
                         enabled = !aiBusy,
@@ -377,32 +440,23 @@ fun DetailDialog(
                     ) { Text("AI 重新解析", fontSize = 12.5.sp) }
                     Button(
                         onClick = {
-                            if (aiBusy) return@Button
                             if (!com.jiancuoti.app.net.AiParser.configured) {
                                 aiMsg = "请先在「我的」页配置 AI 解析接口"; return@Button
                             }
-                            aiBusy = true; aiMsg = "正在生成变式题…"
-                            scope.launch {
-                                try {
-                                    val vs = com.jiancuoti.app.net.AiParser.variants(
-                                        m.subject, m.knowledge, m.question, m.answer
-                                    )
-                                    aiBusy = false
-                                    if (vs.isEmpty()) {
-                                        aiMsg = "生成失败：未返回有效题目"
-                                    } else {
-                                        aiMsg = ""
-                                        variants = vs
-                                    }
-                                } catch (e: Exception) {
-                                    aiBusy = false
-                                    aiMsg = "生成失败：${e.message?.take(80)}"
-                                }
-                            }
+                            com.jiancuoti.app.net.BgTasks.startVariants(m, preferReal)
                         },
-                        enabled = !aiBusy,
+                        enabled = !vBusy,
                         modifier = Modifier.weight(1f)
-                    ) { Text(if (aiBusy) "生成中…" else "举一反三", color = Color.White, fontSize = 12.5.sp) }
+                    ) {
+                        Text(
+                            when {
+                                vBusy -> "后台生成中…"
+                                vDone != null -> "再看一次"
+                                else -> "举一反三"
+                            },
+                            color = Color.White, fontSize = 12.5.sp
+                        )
+                    }
                 }
                 Row(
                     Modifier.fillMaxWidth().padding(12.dp),
@@ -436,9 +490,10 @@ fun DetailDialog(
         }
     }
 
-    // 举一反三：变式题弹窗
-    variants?.let { vs ->
-        VariantsDialog(vs, m.subject, m.knowledge, onClose = { variants = null })
+    // 举一反三：变式题弹窗（结果来自全局后台任务，关弹窗再开也能看到）
+    val doneVariants = com.jiancuoti.app.net.BgTasks.variants[m.id]
+    if (doneVariants != null && showVariants) {
+        VariantsDialog(doneVariants, m.subject, m.knowledge, onClose = { showVariants = false })
     }
 }
 

@@ -93,9 +93,6 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var cropFiles by remember { mutableStateOf<List<File>>(emptyList()) }
     var cropIndex by remember { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf("") }
-    // 裁剪完成后的核对队列：逐题弹编辑页，AI 已预填，可修改后保存
-    var reviewQueue by remember { mutableStateOf<List<Mistake>>(emptyList()) }
-    var reviewIndex by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -252,17 +249,22 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 pageIndex = cropIndex,
                 onSwitchPage = { cropIndex = it },
                 onBack = { cropFiles = emptyList() },
-                onExtract = { items ->
+                onExtract = { items, rotations ->
                     val files = cropFiles
                     cropFiles = emptyList()
                     tab = 0
-                    scope.launch {
-                        // 预载各页高清图
+                    // 用全局后台协程：保存+解析都不受页面/弹窗生命周期影响
+                    com.jiancuoti.app.net.BgTasks.scope.launch {
+                        // 预载各页高清图（带旋转）
                         val fullBmps = withContext(Dispatchers.IO) {
-                            files.map { loadBitmap(it, 2400) }
+                            files.mapIndexed { i, f ->
+                                val b = loadBitmap(f, 2400)
+                                val ang = rotations[i] ?: 0f
+                                if (ang % 360f != 0f) rotateBitmap(b, ang) else b
+                            }
                         }
                         var parsed = 0
-                        val pending = mutableListOf<Mistake>()
+                        val savedList = mutableListOf<Mistake>()
                         val total = items.size
                         for ((idx, parts) in items.withIndex()) {
                             try {
@@ -291,84 +293,37 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                         finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
                                     }
                                 }
-                                // AI 解析（受「裁剪后自动解析」开关控制）；失败不丢图，留待编辑/重新解析
-                                val autoParse = Store.settings["autoParse"] != "0"
-                                val result = if (autoParse) {
-                                    try {
-                                        toast = "AI 解析中 ${idx + 1}/$total"
-                                        val r = AiParser.parse(finalBmp)
-                                        parsed++
-                                        r
-                                    } catch (_: Exception) {
-                                        com.jiancuoti.app.net.ParseResult(
-                                            subject = Store.settings["defaultSubject"] ?: "其他",
-                                            knowledge = "", question = "", answer = "",
-                                            analysis = "", by = "manual"
-                                        )
-                                    }
-                                } else {
-                                    com.jiancuoti.app.net.ParseResult(
-                                        subject = Store.settings["defaultSubject"] ?: "其他",
-                                        knowledge = "", question = "", answer = "",
-                                        analysis = "", by = "manual"
-                                    )
-                                }
-                                // 暂不入库：进入核对队列，弹编辑页确认后保存
-                                pending.add(Mistake(
+                                // 立即入库（显示「解析中」），后台慢慢解析
+                                val willParse = Store.settings["autoParse"] != "0" && AiParser.configured
+                                val m = Mistake(
                                     id = Store.uid(),
-                                    subject = result.subject,
-                                    knowledge = result.knowledge,
-                                    question = result.question,
-                                    answer = result.answer,
-                                    analysis = result.analysis,
                                     imageFile = imgName,
-                                    parsedBy = result.by
-                                ))
+                                    parsedBy = "manual",
+                                    parsing = willParse
+                                )
+                                Store.mistakes.add(0, m)
+                                Store.saveMistakes()
+                                savedList.add(m)
+                                bump()
+                                withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
+                                if (willParse) {
+                                    try {
+                                        toast = "已入库，AI 解析中 ${idx + 1}/$total"
+                                        val r = AiParser.parse(finalBmp)
+                                        m.subject = r.subject; m.knowledge = r.knowledge
+                                        m.question = r.question; m.answer = r.answer
+                                        m.analysis = r.analysis; m.parsedBy = r.by
+                                        parsed++
+                                    } catch (_: Exception) {}
+                                    m.parsing = false
+                                    Store.saveMistakes()
+                                    withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
+                                    bump()
+                                }
                             } catch (_: Exception) {}
                         }
-                        if (pending.isEmpty()) {
-                            bump()
-                            toast = "未提取到题目"
-                        } else {
-                            reviewQueue = pending
-                            reviewIndex = 0
-                            toast = "共 ${pending.size} 题，请核对后保存"
-                        }
-                    }
-                }
-            )
-        }
-
-        // 裁剪后核对：逐题弹编辑页（AI 已预填，可修改）
-        if (reviewQueue.isNotEmpty() && reviewIndex < reviewQueue.size) {
-            val m = reviewQueue[reviewIndex]
-            EditDialog(
-                m,
-                title = "核对题目 ${reviewIndex + 1}/${reviewQueue.size}",
-                onClose = {
-                    // 关闭 = 剩余题目按当前内容直接入库（不丢图）
-                    val rest = reviewQueue.drop(reviewIndex)
-                    rest.reversed().forEach { Store.mistakes.add(0, it) }
-                    Store.saveMistakes()
-                    scope.launch {
-                        withContext(Dispatchers.IO) { rest.forEach { Supabase.pushMistake(it) } }
-                    }
-                    reviewQueue = emptyList()
-                    bump()
-                    toast = "已保存 ${rest.size} 题"
-                },
-                onSaved = {
-                    Store.mistakes.add(0, m)
-                    Store.saveMistakes()
-                    scope.launch {
-                        withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
-                    }
-                    if (reviewIndex < reviewQueue.size - 1) {
-                        reviewIndex++
-                    } else {
-                        reviewQueue = emptyList()
-                        bump()
-                        toast = "全部核对完成"
+                        toast = if (savedList.isEmpty()) "未提取到题目"
+                                else "已保存 ${savedList.size} 题（AI 解析 $parsed 题）"
                     }
                 }
             )
@@ -394,6 +349,12 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
 }
 
 private val RoundedCornerShapeT = androidx.compose.foundation.shape.RoundedCornerShape(50)
+
+/** 任意角度旋转位图（自动扩展画布防裁边） */
+private fun rotateBitmap(src: android.graphics.Bitmap, degrees: Float): android.graphics.Bitmap {
+    val m = android.graphics.Matrix().apply { postRotate(degrees) }
+    return android.graphics.Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+}
 
 /** 垂直拼接：各部分先等宽缩放对齐，再上下合成（白色底，小间隙） */
 private fun stitchVertical(crops: List<android.graphics.Bitmap>): android.graphics.Bitmap {

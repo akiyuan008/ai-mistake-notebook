@@ -132,7 +132,7 @@ object AiParser {
     }
 
     /** 举一反三：基于原题生成 2-3 道同考点变式题（含答案与提示） */
-    suspend fun variants(subject: String, knowledge: String, question: String, answer: String): List<VariantQuestion> =
+    suspend fun variants(subject: String, knowledge: String, question: String, answer: String, preferReal: Boolean = false): List<VariantQuestion> =
         withContext(Dispatchers.IO) {
             if (!configured) return@withContext emptyList()
             val url = Store.settings["apiUrl"]!!
@@ -146,6 +146,9 @@ object AiParser {
                 题干：${question.ifBlank { "（图片题，见描述）" }}
                 答案：$answer
 
+                ${if (preferReal) """
+                重要要求：优先从近几年（2020年及以后）全国各地中考/高考真题、模拟题、期中期末考题中挑选与该知识点高度契合的题目（若你具备联网搜索能力，请先搜索近年真题再作答）；每道题在 question 开头用括号标注来源，如（2023·江苏高考）。找不到足够真题时才自行编写，自行编写的标注（改编）。
+                """.trimIndent() else "" }
                 请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
                 只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
                 question(新题干)、answer(参考答案)、hint(一句话思路提示)、difficulty(1到3的整数)。

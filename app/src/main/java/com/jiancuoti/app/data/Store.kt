@@ -57,6 +57,7 @@ object Store {
                     errorCount = o.optInt("errorCount", 1),
                     mastered = o.optBoolean("mastered"),
                     parsedBy = o.optString("parsedBy", "manual"),
+                    parsing = false,
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                     updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
                 ))

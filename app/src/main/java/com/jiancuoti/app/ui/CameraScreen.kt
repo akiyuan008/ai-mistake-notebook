@@ -3,6 +3,7 @@ package com.jiancuoti.app.ui
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
@@ -55,6 +57,53 @@ fun CameraScreen(
     var singlePage by remember { mutableStateOf(true) }
     var shots by remember { mutableStateOf<List<File>>(emptyList()) }
     var capturing by remember { mutableStateOf(false) }
+
+    // 相机权限：进入页面自动申请
+    var camGranted by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var camDenied by remember { mutableStateOf(false) }
+    val camLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        camGranted = granted
+        if (!granted) camDenied = true
+    }
+    LaunchedEffect(Unit) {
+        if (!camGranted) camLauncher.launch(android.Manifest.permission.CAMERA)
+    }
+
+    if (!camGranted) {
+        // 权限引导页
+        Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)) {
+                Icon(Icons.Default.CameraAlt, null, tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(18.dp))
+                Text("需要相机权限", color = Color.White, fontSize = 17.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("用于拍摄试卷、提取错题", color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = { camLauncher.launch(android.Manifest.permission.CAMERA) },
+                    shape = RoundedCornerShape(50)
+                ) { Text(if (camDenied) "再次申请权限" else "授予相机权限", color = Color.White) }
+                if (camDenied) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("若多次被拒，请到系统设置中手动开启",
+                        color = Color.White.copy(alpha = 0.5f), fontSize = 11.5.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+        }
+        return
+    }
 
     Box(Modifier.fillMaxSize().background(Color(0xFF0B1220))) {
         AndroidView(
