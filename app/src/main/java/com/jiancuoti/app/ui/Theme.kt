@@ -57,7 +57,7 @@ private val DarkColors = darkColorScheme(
     onBackground = Color(0xFFF2F7FC),    // 接近纯白，保证可读
     onSurface = Color(0xFFF2F7FC),
     onSurfaceVariant = Color(0xFFC0D2E2),
-    outline = Color(0xFF64809A),         // 提亮描边/辅助字
+    outline = Color(0xFF8FA8BD),         // 提亮描边/辅助字，深色下保证可读
     error = Color(0xFFFF8DA3),
 )
 

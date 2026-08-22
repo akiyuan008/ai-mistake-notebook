@@ -37,6 +37,49 @@ object AiParser {
     val configured: Boolean
         get() = Store.settings["apiUrl"].isNullOrBlank().not() && Store.settings["apiKey"].isNullOrBlank().not()
 
+    /** 规范化 chat/completions 地址：用户可能只填了 base（如 https://x.com 或 https://x.com/v1） */
+    private fun chatUrls(raw: String): List<String> {
+        val u = raw.trim().trimEnd('/')
+        val base = u.removeSuffix("/chat/completions")
+            .removeSuffix("/v1")
+        return linkedSetOf(
+            u,
+            "$base/v1/chat/completions",
+            "$base/chat/completions"
+        ).filter { it.startsWith("http") }
+    }
+
+    /** 统一请求：逐个候选地址尝试，404 换下一个，给出可读错误 */
+    private fun postChat(url: String, key: String, body: String): JSONObject {
+        var lastErr: Exception? = null
+        for (ep in chatUrls(url)) {
+            try {
+                val req = Request.Builder().url(ep)
+                    .header("Authorization", "Bearer $key")
+                    .post(body.toRequestBody("application/json".toMediaType()))
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.code == 404) return@use  // 试下一个候选
+                    if (!resp.isSuccessful) {
+                        val msg = resp.body?.string()?.take(300) ?: ""
+                        throw Exception("接口返回 ${resp.code}：${msg.ifBlank { ep }}")
+                    }
+                    return JSONObject(resp.body!!.string())
+                }
+            } catch (e: Exception) {
+                if (e.message?.startsWith("接口返回") == true) throw e
+                lastErr = e
+            }
+        }
+        throw Exception("所有地址均 404，请检查接口地址（需为 OpenAI 兼容地址，可只填站点根地址）")
+    }
+
+    private fun JSONObject.extractContent(): String {
+        var text = optJSONArray("choices")?.optJSONObject(0)
+            ?.optJSONObject("message")?.optString("content") ?: ""
+        return text.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+    }
+
     suspend fun parse(bmp: Bitmap): ParseResult = withContext(Dispatchers.IO) {
         if (!configured) {
             // 未配置接口：保留图片，文本留空待手动补充
@@ -64,28 +107,19 @@ object AiParser {
                         .put("image_url", JSONObject().put("url", "data:image/jpeg;base64,$b64"))))))
         }.toString()
 
-        val req = Request.Builder().url(url)
-            .header("Authorization", "Bearer $key")
-            .post(body.toRequestBody("application/json".toMediaType()))
-            .build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) throw Exception("接口返回 ${resp.code}")
-            val data = JSONObject(resp.body!!.string())
-            var text = data.optJSONArray("choices")?.optJSONObject(0)
-                ?.optJSONObject("message")?.optString("content") ?: ""
-            text = text.removePrefix("```json").removeSuffix("```").trim()
-            val m = Regex("\\{[\\s\\S]*\\}").find(text) ?: throw Exception("返回无法解析")
-            val j = JSONObject(m.value)
-            val subj = j.optString("subject")
-            ParseResult(
-                subject = if (com.jiancuoti.app.data.SUBJECTS.contains(subj)) subj else "其他",
-                knowledge = j.optString("knowledge"),
-                question = j.optString("question"),
-                answer = j.optString("answer"),
-                analysis = j.optString("analysis"),
-                by = "api"
-            )
-        }
+        val data = postChat(url, key, body)
+        val text = data.extractContent()
+        val m = Regex("\\{[\\s\\S]*\\}").find(text) ?: throw Exception("返回无法解析")
+        val j = JSONObject(m.value)
+        val subj = j.optString("subject")
+        return@withContext ParseResult(
+            subject = if (com.jiancuoti.app.data.SUBJECTS.contains(subj)) subj else "其他",
+            knowledge = j.optString("knowledge"),
+            question = j.optString("question"),
+            answer = j.optString("answer"),
+            analysis = j.optString("analysis"),
+            by = "api"
+        )
     }
 
     /** 举一反三：基于原题生成 2-3 道同考点变式题（含答案与提示） */
@@ -117,30 +151,19 @@ object AiParser {
                     .put(JSONObject().put("role", "user").put("content", prompt)))
             }.toString()
 
-            val req = Request.Builder().url(url)
-                .header("Authorization", "Bearer $key")
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-            try {
-                client.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) throw Exception("接口返回 ${resp.code}")
-                    val data = JSONObject(resp.body!!.string())
-                    var text = data.optJSONArray("choices")?.optJSONObject(0)
-                        ?.optJSONObject("message")?.optString("content") ?: ""
-                    text = text.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-                    val m = Regex("\\[[\\s\\S]*\\]").find(text) ?: throw Exception("返回无法解析")
-                    val arr = JSONArray(m.value)
-                    (0 until arr.length()).mapNotNull { i ->
-                        val o = arr.optJSONObject(i) ?: return@mapNotNull null
-                        VariantQuestion(
-                            question = o.optString("question"),
-                            answer = o.optString("answer"),
-                            hint = o.optString("hint"),
-                            difficulty = o.optInt("difficulty", 1).coerceIn(1, 3)
-                        )
-                    }.filter { it.question.isNotBlank() }
-                }
-            } catch (e: Exception) { emptyList() }
+                val data = postChat(url, key, body)
+                val text = data.extractContent()
+                val m = Regex("\\[[\\s\\S]*\\]").find(text) ?: throw Exception("返回无法解析")
+                val arr = JSONArray(m.value)
+                (0 until arr.length()).mapNotNull { i ->
+                    val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                    VariantQuestion(
+                        question = o.optString("question"),
+                        answer = o.optString("answer"),
+                        hint = o.optString("hint"),
+                        difficulty = o.optInt("difficulty", 1).coerceIn(1, 3)
+                    )
+                }.filter { it.question.isNotBlank() }
         }
 
     /** 从接口拉取模型列表 */

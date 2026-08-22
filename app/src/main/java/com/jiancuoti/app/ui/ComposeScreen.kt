@@ -8,6 +8,7 @@ import android.graphics.pdf.PdfDocument
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -107,13 +108,15 @@ fun ComposeScreen(onChanged: () -> Unit) {
                     MenuField(errMin, listOf("全部", "≥2次", "≥3次"), "错误次数",
                         Modifier.weight(1f)) { errMin = it }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .horizontalScroll(rememberScrollState())) {
                     listOf("全部", "近7天", "近1月", "近3月", "近6月").forEach { r ->
                         FilterChip(selected = range == r, onClick = { range = r },
                             label = { Text(r, fontSize = 11.sp) })
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .horizontalScroll(rememberScrollState())) {
                     listOf("未掌握", "已掌握", "全部").forEach { s ->
                         FilterChip(selected = mastered == s, onClick = { mastered = s },
                             label = { Text(s, fontSize = 11.sp) })
@@ -241,7 +244,8 @@ private fun BigAction(icon: @Composable () -> Unit, title: String, sub: String, 
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(title, fontSize = 15.sp)
-                Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                Text(sub, fontSize = 12.sp, lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

@@ -9,12 +9,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -84,6 +86,9 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var cropFiles by remember { mutableStateOf<List<File>>(emptyList()) }
     var cropIndex by remember { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf("") }
+    // 裁剪完成后的核对队列：逐题弹编辑页，AI 已预填，可修改后保存
+    var reviewQueue by remember { mutableStateOf<List<Mistake>>(emptyList()) }
+    var reviewIndex by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -115,14 +120,21 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             containerColor = Color.Transparent,
             bottomBar = {
                 Box {
-                    // 悬浮玻璃 Dock：圆角胶囊、半透明、高光描边
+                    // 悬浮玻璃 Dock：大圆角胶囊、半透明、高光描边
                     NavigationBar(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                            .navigationBarsPadding(),
-                        containerColor = if (dark) Color(0xFF16222F).copy(alpha = 0.82f)
-                                         else Color.White.copy(alpha = 0.72f),
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                            .navigationBarsPadding()
+                            .clip(RoundedCornerShape(30.dp))
+                            .border(
+                                1.dp,
+                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.16f)
+                                else Color.White.copy(alpha = 0.7f),
+                                RoundedCornerShape(30.dp)
+                            ),
+                        containerColor = if (dark) Color(0xFF16222F).copy(alpha = 0.85f)
+                                         else Color.White.copy(alpha = 0.75f),
                         tonalElevation = 0.dp
                     ) {
                         val items: List<Triple<String, ImageVector, Int>> = listOf(
@@ -146,8 +158,17 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 NavigationBarItem(
                                     selected = tab == idx,
                                     onClick = { tab = idx },
-                                    icon = { Icon(icon, null) },
-                                    label = { Text(label, fontSize = 10.5.sp) }
+                                    icon = {
+                                        Icon(icon, null,
+                                            modifier = Modifier.size(28.dp),
+                                            tint = if (tab == idx) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    },
+                                    label = {
+                                        Text(label, fontSize = 11.sp, maxLines = 1,
+                                            color = if (tab == idx) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 )
                             }
                         }
@@ -155,8 +176,8 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     // 拍摄按钮：覆盖层，凸出于 Dock 顶部，完整显示
                     Box(
                         Modifier.align(Alignment.TopCenter)
-                            .offset(y = (-14).dp)
-                            .size(58.dp)
+                            .offset(y = (-12).dp)
+                            .size(60.dp)
                             .shadow(10.dp, CircleShape, clip = false)
                             .background(
                                 Brush.linearGradient(
@@ -169,7 +190,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.CameraAlt, null, tint = Color.White,
-                            modifier = Modifier.size(26.dp))
+                            modifier = Modifier.size(28.dp))
                     }
                 }
             }
@@ -230,8 +251,8 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                         val fullBmps = withContext(Dispatchers.IO) {
                             files.map { loadBitmap(it, 2400) }
                         }
-                        var saved = 0
                         var parsed = 0
+                        val pending = mutableListOf<Mistake>()
                         val total = items.size
                         for ((idx, parts) in items.withIndex()) {
                             try {
@@ -260,20 +281,30 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                         finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it)
                                     }
                                 }
-                                // AI 解析失败不丢图：保留图片待手动/重新解析
-                                val result = try {
-                                    toast = "AI 解析中 ${idx + 1}/$total"
-                                    val r = AiParser.parse(finalBmp)
-                                    parsed++
-                                    r
-                                } catch (_: Exception) {
+                                // AI 解析（受「裁剪后自动解析」开关控制）；失败不丢图，留待编辑/重新解析
+                                val autoParse = Store.settings["autoParse"] != "0"
+                                val result = if (autoParse) {
+                                    try {
+                                        toast = "AI 解析中 ${idx + 1}/$total"
+                                        val r = AiParser.parse(finalBmp)
+                                        parsed++
+                                        r
+                                    } catch (_: Exception) {
+                                        com.jiancuoti.app.net.ParseResult(
+                                            subject = Store.settings["defaultSubject"] ?: "其他",
+                                            knowledge = "", question = "", answer = "",
+                                            analysis = "", by = "manual"
+                                        )
+                                    }
+                                } else {
                                     com.jiancuoti.app.net.ParseResult(
                                         subject = Store.settings["defaultSubject"] ?: "其他",
                                         knowledge = "", question = "", answer = "",
                                         analysis = "", by = "manual"
                                     )
                                 }
-                                val m = Mistake(
+                                // 暂不入库：进入核对队列，弹编辑页确认后保存
+                                pending.add(Mistake(
                                     id = Store.uid(),
                                     subject = result.subject,
                                     knowledge = result.knowledge,
@@ -282,15 +313,52 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                     analysis = result.analysis,
                                     imageFile = imgName,
                                     parsedBy = result.by
-                                )
-                                Store.mistakes.add(0, m)
-                                Store.saveMistakes()
-                                withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
-                                saved++
+                                ))
                             } catch (_: Exception) {}
                         }
+                        if (pending.isEmpty()) {
+                            bump()
+                            toast = "未提取到题目"
+                        } else {
+                            reviewQueue = pending
+                            reviewIndex = 0
+                            toast = "共 ${pending.size} 题，请核对后保存"
+                        }
+                    }
+                }
+            )
+        }
+
+        // 裁剪后核对：逐题弹编辑页（AI 已预填，可修改）
+        if (reviewQueue.isNotEmpty() && reviewIndex < reviewQueue.size) {
+            val m = reviewQueue[reviewIndex]
+            EditDialog(
+                m,
+                title = "核对题目 ${reviewIndex + 1}/${reviewQueue.size}",
+                onClose = {
+                    // 关闭 = 剩余题目按当前内容直接入库（不丢图）
+                    val rest = reviewQueue.drop(reviewIndex)
+                    rest.reversed().forEach { Store.mistakes.add(0, it) }
+                    Store.saveMistakes()
+                    scope.launch {
+                        withContext(Dispatchers.IO) { rest.forEach { Supabase.pushMistake(it) } }
+                    }
+                    reviewQueue = emptyList()
+                    bump()
+                    toast = "已保存 ${rest.size} 题"
+                },
+                onSaved = {
+                    Store.mistakes.add(0, m)
+                    Store.saveMistakes()
+                    scope.launch {
+                        withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
+                    }
+                    if (reviewIndex < reviewQueue.size - 1) {
+                        reviewIndex++
+                    } else {
+                        reviewQueue = emptyList()
                         bump()
-                        toast = "提取完成：共 $saved 题（AI 解析 $parsed 题）"
+                        toast = "全部核对完成"
                     }
                 }
             )

@@ -2,6 +2,7 @@ package com.jiancuoti.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -49,7 +50,7 @@ fun StatsScreen() {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 14.dp)
     ) {
-        Row(Modifier.padding(vertical = 8.dp)) {
+        Row(Modifier.padding(vertical = 8.dp).horizontalScroll(rememberScrollState())) {
             listOf("今天", "本周", "本月", "最近 7 天", "最近 30 天", "全部时间").forEach { r ->
                 FilterChip(
                     selected = range == r, onClick = { range = r },

@@ -102,7 +102,8 @@ fun LibraryScreen(onChanged: () -> Unit) {
         }
 
         // 状态筛选
-        Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 6.dp)) {
+        Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 6.dp)
+            .horizontalScroll(rememberScrollState())) {
             listOf("全部", "未掌握", "已掌握", "高频错题").forEach { s ->
                 FilterChip(
                     selected = status == s,
@@ -114,7 +115,8 @@ fun LibraryScreen(onChanged: () -> Unit) {
         }
 
         // 科目筛选
-        Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp)) {
+        Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp)
+            .horizontalScroll(rememberScrollState())) {
             val subjects = listOf("全部") + Store.mistakes.map { it.subject }.distinct()
             subjects.forEach { s ->
                 FilterChip(
@@ -381,15 +383,20 @@ fun DetailDialog(
                             }
                             aiBusy = true; aiMsg = "正在生成变式题…"
                             scope.launch {
-                                val vs = com.jiancuoti.app.net.AiParser.variants(
-                                    m.subject, m.knowledge, m.question, m.answer
-                                )
-                                aiBusy = false
-                                if (vs.isEmpty()) {
-                                    aiMsg = "生成失败，请稍后再试"
-                                } else {
-                                    aiMsg = ""
-                                    variants = vs
+                                try {
+                                    val vs = com.jiancuoti.app.net.AiParser.variants(
+                                        m.subject, m.knowledge, m.question, m.answer
+                                    )
+                                    aiBusy = false
+                                    if (vs.isEmpty()) {
+                                        aiMsg = "生成失败：未返回有效题目"
+                                    } else {
+                                        aiMsg = ""
+                                        variants = vs
+                                    }
+                                } catch (e: Exception) {
+                                    aiBusy = false
+                                    aiMsg = "生成失败：${e.message?.take(80)}"
                                 }
                             }
                         },
@@ -510,18 +517,24 @@ private fun Section(title: String, color: Color = MaterialTheme.colorScheme.prim
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditDialog(m: Mistake, onClose: () -> Unit, onSaved: () -> Unit) {
+fun EditDialog(
+    m: Mistake,
+    title: String = "编辑错题",
+    onClose: () -> Unit,
+    onSaved: () -> Unit
+) {
     var subject by remember { mutableStateOf(m.subject) }
     var knowledge by remember { mutableStateOf(m.knowledge) }
     var question by remember { mutableStateOf(m.question) }
     var answer by remember { mutableStateOf(m.answer) }
     var analysis by remember { mutableStateOf(m.analysis) }
     val scope = rememberCoroutineScope()
+    val imgFile = Store.imgFile(m.imageFile)
 
     Dialog(onDismissRequest = onClose) {
         Surface(
             Modifier.fillMaxWidth().fillMaxHeight(0.88f),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(Modifier.fillMaxSize()) {
@@ -529,7 +542,7 @@ fun EditDialog(m: Mistake, onClose: () -> Unit, onSaved: () -> Unit) {
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("编辑错题", fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    Text(title, fontSize = 16.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = onClose) { Text("取消") }
                     Button(onClick = {
                         m.subject = subject; m.knowledge = knowledge.trim()
@@ -546,6 +559,17 @@ fun EditDialog(m: Mistake, onClose: () -> Unit, onSaved: () -> Unit) {
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // 原图预览
+                    if (imgFile != null) {
+                        AsyncImage(
+                            model = imgFile,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxWidth()
+                                .heightIn(max = 180.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         var expanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(

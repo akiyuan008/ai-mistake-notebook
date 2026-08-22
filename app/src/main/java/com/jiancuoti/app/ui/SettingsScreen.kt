@@ -43,6 +43,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var modelStatus by remember { mutableStateOf("") }
     var syncStatus by remember { mutableStateOf(if (Supabase.configured) "已配置" else "未配置") }
     var enhance by remember { mutableStateOf(Store.settings["enhance"] != "0") }
+    var autoParse by remember { mutableStateOf(Store.settings["autoParse"] != "0") }
 
     // 模型选择列表
     var modelPicker by remember { mutableStateOf(false) }
@@ -175,11 +176,25 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text("自动增强画质", fontSize = 13.5.sp)
                     Text("去阴影、提亮纸张、加深字迹", fontSize = 11.5.sp,
-                        color = MaterialTheme.colorScheme.outline)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enhance, onCheckedChange = {
                     enhance = it
                     Store.settings["enhance"] = if (it) "1" else "0"
+                    Store.saveSettings()
+                })
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("裁剪后 AI 自动解析", fontSize = 13.5.sp)
+                    Text("裁剪完成后 AI 自动识别科目/知识点并预填，弹窗中可再编辑；关闭则只存图片", fontSize = 11.5.sp,
+                        lineHeight = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = autoParse, onCheckedChange = {
+                    autoParse = it
+                    Store.settings["autoParse"] = if (it) "1" else "0"
                     Store.saveSettings()
                 })
             }
