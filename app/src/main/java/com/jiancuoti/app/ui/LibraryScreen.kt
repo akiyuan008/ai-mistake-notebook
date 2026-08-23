@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +69,9 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}, nav: P
     var subject by remember { mutableStateOf("全部") }
     var status by remember { mutableStateOf("全部") }
     var timeRange by remember { mutableStateOf("全部") }
+    var exportTarget by remember { mutableStateOf<Mistake?>(null) }
+    val exportScope = rememberCoroutineScope()
+    val exportContext = LocalContext.current
     // 数据版本：任何数据变更（导入/解析完成/删除/云同步）自动刷新列表
     val rev = Store.revision.intValue
 
@@ -210,16 +215,30 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}, nav: P
                         val idx = imgs.indexOfFirst { it.name == m.imageFile }
                         if (idx >= 0) nav.openViewer(imgs, idx, list.map { it.knowledge })
                         else nav.openDetail(m)
-                    })
+                    }, onExport = { exportTarget = m })
                 }
                 item { Spacer(Modifier.height(90.dp)) }
             }
         }
     }
+
+    // 单题导出（与组卷导出相同流程）
+    exportTarget?.let { m ->
+        TitleDialog(
+            onClose = { exportTarget = null },
+            onConfirm = { title, opts ->
+                exportTarget = null
+                exportScope.launch {
+                    val msg = generateAndShare(exportContext, title, listOf(m), opts)
+                    if (msg.isNotBlank()) com.jiancuoti.app.net.BgTasks.toast(msg)
+                }
+            }
+        )
+    }
 }
 
 @Composable
-fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen) {
+fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen, onExport: () -> Unit = {}) {
     val imgFile = Store.imgFile(m.imageFile)
     GlassCard(
         Modifier.fillMaxWidth().clickable(onClick = onOpen),
@@ -281,6 +300,24 @@ fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen
                     if (m.errorCount > 1) {
                         Spacer(Modifier.width(8.dp))
                         Text("错 ${m.errorCount} 次", fontSize = 11.sp, color = Red)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    // 导出按钮：与组卷导出相同流程（PDF/存相册）
+                    Box(
+                        Modifier.clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                            .clickableNoRipple(onClick = onExport)
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Download,
+                                null, tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("导出", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }

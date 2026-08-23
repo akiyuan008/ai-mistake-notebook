@@ -110,37 +110,54 @@ fun AlbumScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(
+    Box(Modifier.fillMaxSize().background(
+        androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
+            MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
+        ))
+    )) {
+      Column(Modifier.fillMaxSize()) {
+        // 顶栏：玻璃胶囊
+        Surface(
             Modifier.fillMaxWidth().statusBarsPadding()
                 .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            shape = RoundedCornerShape(22.dp),
+            color = glassColor(),
+            border = glassBorder()
         ) {
-            Text("相册", fontSize = 17.sp, modifier = Modifier.weight(1f))
-            if (pdfBusy) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp).padding(end = 8.dp),
-                    strokeWidth = 2.dp
-                )
-                Text("PDF解析中", fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 10.dp))
-            } else {
-                TextButton(onClick = { pdfLauncher.launch("application/pdf") }) {
-                    Text("导入 PDF", fontSize = 13.sp)
+            Row(
+                Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
+                Text("相册", fontSize = 16.sp, modifier = Modifier.weight(1f))
+                if (pdfBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(15.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("PDF解析中", fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary)
+                } else {
+                    TextButton(onClick = { pdfLauncher.launch("application/pdf") }) {
+                        Text("导入 PDF", fontSize = 13.sp)
+                    }
                 }
             }
-            if (pdfMsg.isNotBlank()) {
-                Text(pdfMsg, fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp))
+        }
+        if (pdfMsg.isNotBlank() || selected.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 4.dp)) {
+                if (pdfMsg.isNotBlank()) {
+                    Text(pdfMsg, fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f))
+                } else Spacer(Modifier.weight(1f))
+                if (selected.isNotEmpty()) {
+                    Text("${selected.size} 张已选", fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.primary)
+                }
             }
-            if (selected.isNotEmpty()) {
-                Text("${selected.size} 张已选", fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 12.dp))
-            }
-            IconButton(onClick = onClose) { Icon(Icons.Default.Close, null) }
         }
         if (!granted) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -192,31 +209,37 @@ fun AlbumScreen(
                     }
                 }
             }
-            Surface(
-                Modifier.fillMaxWidth().navigationBarsPadding(),
-                shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
-                color = glassColor(),
-                border = glassBorder(),
-                shadowElevation = 8.dp
-            ) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { selected = items.map { it.id }.toSet() }) {
-                        Text("全选")
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Button(
-                        onClick = {
-                            onConfirm(items.filter { selected.contains(it.id) }.map { it.uri })
-                        },
-                        enabled = selected.isNotEmpty(),
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
-                    ) {
-                        Text("导入 (${selected.size})", color = Color.White)
+            Spacer(Modifier.height(8.dp))
+            // 底部操作栏：悬浮玻璃胶囊
+            Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Surface(
+                    Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(percent = 50),
+                    color = glassColor(),
+                    border = glassBorder(),
+                    shadowElevation = 6.dp
+                ) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { selected = items.map { it.id }.toSet() }) {
+                            Text("全选")
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Button(
+                            onClick = {
+                                onConfirm(items.filter { selected.contains(it.id) }.map { it.uri })
+                            },
+                            enabled = selected.isNotEmpty(),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(containerColor = SkyPrimary)
+                        ) {
+                            Text("导入 (${selected.size})", color = Color.White)
+                        }
                     }
                 }
             }
         }
+      }
     }
 }
 

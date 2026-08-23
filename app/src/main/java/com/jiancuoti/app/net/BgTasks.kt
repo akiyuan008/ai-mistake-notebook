@@ -24,6 +24,12 @@ object BgTasks {
     /** 全局提示（解析完成等） */
     val notice = mutableStateMapOf<String, String>()
 
+    /** 全局 Toast 通道：任何后台任务完成都可推送到前台显示 */
+    val globalToast = androidx.compose.runtime.mutableStateOf(0L to "")
+    fun toast(msg: String) {
+        globalToast.value = System.currentTimeMillis() to msg
+    }
+
     fun startVariants(m: MistakeLike, preferReal: Boolean) {
         val key = m.id
         if (variantsBusy[key] == true) return

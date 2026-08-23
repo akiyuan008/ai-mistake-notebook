@@ -3,6 +3,7 @@ package com.jiancuoti.app
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -118,6 +119,18 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         )
     }
 
+    // 系统返回键：先退全屏页面栈 → 再回错题库首页 → 最后退出
+    BackHandler(enabled = pageStack.isNotEmpty() || tab != 0) {
+        if (pageStack.isNotEmpty()) pop()
+        else if (tab != 0) tab = 0
+    }
+
+    // 后台任务提示（解析完成等）→ 前台 Toast
+    val gToast = com.jiancuoti.app.net.BgTasks.globalToast.value
+    LaunchedEffect(gToast.first) {
+        if (gToast.second.isNotBlank()) toast = gToast.second
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -147,65 +160,93 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                // Dock：玻璃胶囊、纯图标无文字、贴底、真圆角、无蓝色
-                val dockBg = if (dark) Color(0xFF1A2736).copy(alpha = 0.88f)
-                             else Color.White.copy(alpha = 0.82f)
-                val ink = MaterialTheme.colorScheme.onSurface
-                val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                // Dock：玻璃拟态磨砂胶囊，纯图标无文字，贴底
+                val glassLight = listOf(
+                    Color.White.copy(alpha = 0.78f),
+                    Color.White.copy(alpha = 0.55f)
+                )
+                val glassDark = listOf(
+                    Color(0xFF22344A).copy(alpha = 0.88f),
+                    Color(0xFF1A2736).copy(alpha = 0.78f)
+                )
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 40.dp, vertical = 6.dp)
+                        .padding(horizontal = 30.dp)
+                        .padding(bottom = 6.dp)
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().height(56.dp)
-                            .clip(RoundedCornerShape(percent = 50))
-                            .background(dockBg)
-                            .border(
-                                1.dp,
-                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.14f)
-                                else Color.White.copy(alpha = 0.8f),
-                                RoundedCornerShape(percent = 50)
-                            )
-                            .shadow(8.dp, RoundedCornerShape(percent = 50)),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(percent = 50),
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (dark) Color(0xFFBFE0F5).copy(alpha = 0.18f)
+                            else Color.White.copy(alpha = 0.85f)
+                        ),
+                        shadowElevation = 10.dp
                     ) {
-                        val items: List<Triple<String, ImageVector, Int>> = listOf(
-                            Triple("错题库", Icons.Default.Book, 0),
-                            Triple("组卷", Icons.Default.Assignment, 1),
-                            Triple("拍摄", Icons.Default.CameraAlt, 2),
-                            Triple("统计", Icons.Default.BarChart, 3),
-                            Triple("我的", Icons.Default.Person, 4)
-                        )
-                        items.forEach { (label, icon, idx) ->
-                            Box(
-                                Modifier.weight(1f).fillMaxHeight()
-                                    .clickableNoRipple { tab = idx },
-                                contentAlignment = Alignment.Center
+                        Box(
+                            Modifier.fillMaxWidth().height(58.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        if (dark) glassDark else glassLight
+                                    )
+                                )
+                        ) {
+                            Row(
+                                Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    if (idx == 2) {
-                                        // 中间拍摄：墨色圆底白图标（非蓝色）
-                                        Box(
-                                            Modifier.size(40.dp)
-                                                .clip(CircleShape)
-                                                .background(if (dark) Color(0xFFE8F1F8) else Color(0xFF16324A)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(icon, null,
-                                                tint = if (dark) Color(0xFF16324A) else Color.White,
-                                                modifier = Modifier.size(22.dp))
+                                val items: List<Triple<String, ImageVector, Int>> = listOf(
+                                    Triple("错题库", Icons.Default.Book, 0),
+                                    Triple("组卷", Icons.Default.Assignment, 1),
+                                    Triple("拍摄", Icons.Default.CameraAlt, 2),
+                                    Triple("统计", Icons.Default.BarChart, 3),
+                                    Triple("我的", Icons.Default.Person, 4)
+                                )
+                                val ink = MaterialTheme.colorScheme.onSurface
+                                val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                items.forEach { (_, icon, idx) ->
+                                    Box(
+                                        Modifier.weight(1f).fillMaxHeight()
+                                            .clickableNoRipple { tab = idx },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (idx == 2) {
+                                            // 中间拍摄：玻璃白圆 + 墨色图标（非蓝非黑）
+                                            Box(
+                                                Modifier.size(42.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (dark) Color(0xFFDCEBF7).copy(alpha = 0.92f)
+                                                        else Color.White.copy(alpha = 0.95f)
+                                                    )
+                                                    .border(
+                                                        1.dp,
+                                                        if (dark) Color.White.copy(alpha = 0.3f)
+                                                        else Color.White,
+                                                        CircleShape
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(icon, null,
+                                                    tint = Color(0xFF16324A),
+                                                    modifier = Modifier.size(22.dp))
+                                            }
+                                        } else {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Icon(icon, null,
+                                                    tint = if (tab == idx) ink else dim,
+                                                    modifier = Modifier.size(24.dp))
+                                                Box(
+                                                    Modifier.padding(top = 3.dp)
+                                                        .size(if (tab == idx) 4.dp else 0.dp)
+                                                        .clip(CircleShape)
+                                                        .background(ink)
+                                                )
+                                            }
                                         }
-                                    } else {
-                                        Icon(icon, null,
-                                            tint = if (tab == idx) ink else dim,
-                                            modifier = Modifier.size(24.dp))
-                                        Box(
-                                            Modifier.padding(top = 3.dp)
-                                                .size(if (tab == idx) 4.dp else 0.dp)
-                                                .clip(CircleShape)
-                                                .background(ink)
-                                        )
                                     }
                                 }
                             }
@@ -330,7 +371,8 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 Store.saveMistakes()
                                 savedList.add(m)
                                 bump()
-                                withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
+                                // 云同步不阻塞解析队列（后台异步推送）
+                                launch { Supabase.pushMistake(m) }
                                 if (willParse) {
                                     try {
                                         toast = "已入库，AI 解析中 ${idx + 1}/$total"
@@ -339,10 +381,17 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                         m.question = r.question; m.answer = r.answer
                                         m.analysis = r.analysis; m.parsedBy = r.by
                                         parsed++
-                                    } catch (_: Exception) {}
+                                        com.jiancuoti.app.net.BgTasks.toast(
+                                            "第 ${idx + 1}/${total} 题解析完成"
+                                        )
+                                    } catch (_: Exception) {
+                                        com.jiancuoti.app.net.BgTasks.toast(
+                                            "第 ${idx + 1}/${total} 题解析失败，可在详情页重新解析"
+                                        )
+                                    }
                                     m.parsing = false
                                     Store.saveMistakes()
-                                    withContext(Dispatchers.IO) { Supabase.pushMistake(m) }
+                                    launch { Supabase.pushMistake(m) }
                                     bump()
                                 }
                             } catch (_: Exception) {}
