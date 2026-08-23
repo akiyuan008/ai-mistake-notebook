@@ -117,7 +117,7 @@ object AiParser {
             put("max_tokens", 1200)
             put("messages", JSONArray()
                 .put(JSONObject().put("role", "system")
-                    .put("content", "你是错题整理助手（题目均来自人教版教材体系）。观察题目图片，只输出 JSON（不要 markdown），字段顺序即生成优先级：knowledge 最先精确给出——知识点定位格式「学科·必修/选择性必修几·第几章 章名·第几节 节名」并附核心考点（如「数学·必修第一册·第五章 三角函数·5.4 三角函数的图象与性质 · 周期性」），不要出现"人教版"三个字；然后 subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)、question(完整题干，公式用LaTeX写在\$中，手写内容也要仔细辨认)、answer(正确答案)、analysis(分步解析，最后生成，每步一行，公式用LaTeX写在\$中)。"))
+                    .put("content", "你是错题整理助手（题目均来自人教版教材体系）。观察题目图片，只输出 JSON（不要 markdown），字段顺序即生成优先级：knowledge 最先精确给出——知识点定位格式「学科·必修/选择性必修几·第几章 章名·第几节 节名」并附核心考点（如「数学·必修第一册·第五章 三角函数·5.4 三角函数的图象与性质 · 周期性」），不要出现「人教版」三个字；然后 subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)、question(完整题干，公式用LaTeX写在\$中，手写内容也要仔细辨认)、answer(正确答案)、analysis(分步解析，最后生成，每步一行，公式用LaTeX写在\$中)。"))
                 .put(JSONObject().put("role", "user").put("content", JSONArray()
                     .put(JSONObject().put("type", "text").put("text", "请解析这道题并按要求输出 JSON。"))
                     .put(JSONObject().put("type", "image_url")

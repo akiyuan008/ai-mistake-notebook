@@ -281,15 +281,11 @@ fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen
                 MathText(
                     if (m.parsing) "AI 解析生成中…" else m.question.ifBlank { "图片题（点击查看详情）" },
                     fontSize = 13.sp,
-                    modifier = Modifier,
+                    lineHeight = 19.sp,
                     color = if (m.parsing) MaterialTheme.colorScheme.primary
                             else if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                             else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    color = if (m.parsing) MaterialTheme.colorScheme.primary
-                            else if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
-                            else MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 19.sp
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
