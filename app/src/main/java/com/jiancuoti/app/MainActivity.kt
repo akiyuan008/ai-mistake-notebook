@@ -201,13 +201,24 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         ) { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when (tab) {
-                    0 -> LibraryScreen(onChanged = bump)
+                    0 -> LibraryScreen(
+                        onChanged = bump,
+                        onResumeDrafts = {
+                            val drafts = Store.drafts()
+                            if (drafts.isNotEmpty()) {
+                                cropFiles = drafts
+                                cropIndex = 0
+                            }
+                        }
+                    )
                     1 -> ComposeScreen(onChanged = bump)
                     2 -> CameraScreen(
                         onSingleShot = { f ->
+                            Store.saveDraft(f)
                             cropFiles = listOf(f); cropIndex = 0
                         },
                         onMultiShots = { fs ->
+                            fs.forEach { Store.saveDraft(it) }
                             cropFiles = fs; cropIndex = 0
                         },
                         onOpenAlbum = { tab = 5 }
@@ -221,6 +232,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                             scope.launch {
                                 val files = uris.mapNotNull { copyUri(context, it) }
                                 if (files.isNotEmpty()) {
+                                    files.forEach { Store.saveDraft(it) }
                                     cropFiles = files; cropIndex = 0
                                 }
                             }
@@ -228,6 +240,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                         onImportPdf = { files ->
                             tab = 2
                             if (files.isNotEmpty()) {
+                                files.forEach { Store.saveDraft(it) }
                                 cropFiles = files; cropIndex = 0
                             }
                         }
@@ -253,6 +266,8 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     val files = cropFiles
                     cropFiles = emptyList()
                     tab = 0
+                    // 提交提取即视为完成，清理草稿
+                    files.forEach { Store.removeDraft(it.name) }
                     // 用全局后台协程：保存+解析都不受页面/弹窗生命周期影响
                     com.jiancuoti.app.net.BgTasks.scope.launch {
                         // 预载各页高清图（带旋转）

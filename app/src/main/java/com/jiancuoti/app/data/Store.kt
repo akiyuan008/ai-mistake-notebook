@@ -9,6 +9,7 @@ import java.io.File
 object Store {
     private lateinit var appDir: File
     lateinit var imgDir: File
+    lateinit var draftDir: File
     val settings = mutableMapOf<String, String>()
 
     var mistakes: MutableList<Mistake> = mutableListOf()
@@ -17,9 +18,23 @@ object Store {
     fun init(ctx: Context) {
         appDir = ctx.filesDir
         imgDir = File(appDir, "imgs").apply { mkdirs() }
+        draftDir = File(appDir, "drafts").apply { mkdirs() }
         loadSettings()
         loadMistakes()
         loadPapers()
+    }
+
+    /** 草稿：拍摄/导入后未完成提取的图片（仅本地，不云同步） */
+    fun drafts(): List<File> =
+        draftDir.listFiles()?.filter { it.isFile && it.extension == "jpg" }
+            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+
+    fun saveDraft(file: File) {
+        try { file.copyTo(File(draftDir, file.name), overwrite = true) } catch (_: Exception) {}
+    }
+
+    fun removeDraft(name: String) {
+        try { File(draftDir, name).delete() } catch (_: Exception) {}
     }
 
     private fun file(name: String) = File(appDir, name)

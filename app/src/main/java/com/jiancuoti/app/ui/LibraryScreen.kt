@@ -48,7 +48,7 @@ fun fmtDate(t: Long): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(onChanged: () -> Unit) {
+fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
     var kw by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("全部") }
     var status by remember { mutableStateOf("全部") }
@@ -169,7 +169,7 @@ fun LibraryScreen(onChanged: () -> Unit) {
                 }
             }
         } else {
-            // 快速回看入口
+            // 快速回看 + 草稿箱入口
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -180,6 +180,13 @@ fun LibraryScreen(onChanged: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
+                val draftCount = Store.drafts().size
+                if (draftCount > 0) {
+                    TextButton(onClick = { onResumeDrafts() }) {
+                        Text("草稿 $draftCount", fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
                 TextButton(onClick = { viewerIndex = 0 }) {
                     Text("快速回看 · 左右滑切题", fontSize = 12.5.sp)
                 }
@@ -197,18 +204,18 @@ fun LibraryScreen(onChanged: () -> Unit) {
                 item { Spacer(Modifier.height(90.dp)) }
             }
         }
+    }
 
-        // 全屏快速回看
-        viewerIndex?.let { idx ->
-            val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
-            if (imgs.isEmpty()) { viewerIndex = null } else {
-                ImageViewer(
-                    images = imgs,
-                    initialIndex = idx,
-                    titles = list.map { it.knowledge },
-                    onClose = { viewerIndex = null }
-                )
-            }
+    // 全屏快速回看（覆盖层，无 Dock 栏）
+    viewerIndex?.let { idx ->
+        val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
+        if (imgs.isEmpty()) { viewerIndex = null } else {
+            ImageViewer(
+                images = imgs,
+                initialIndex = idx,
+                titles = list.map { it.knowledge },
+                onClose = { viewerIndex = null }
+            )
         }
     }
 
@@ -271,9 +278,14 @@ fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen
                     }
                 }
                 Spacer(Modifier.height(5.dp))
-                Text(
+                MathText(
                     if (m.parsing) "AI 解析生成中…" else m.question.ifBlank { "图片题（点击查看详情）" },
-                    fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    fontSize = 13.sp,
+                    modifier = Modifier,
+                    color = if (m.parsing) MaterialTheme.colorScheme.primary
+                            else if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                     color = if (m.parsing) MaterialTheme.colorScheme.primary
                             else if (m.question.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                             else MaterialTheme.colorScheme.onSurface,
@@ -309,6 +321,8 @@ fun DetailDialog(
 ) {
     val scope = rememberCoroutineScope()
     val imgFile = Store.imgFile(m.imageFile)
+    var imgFullscreen by remember { mutableStateOf(false) }
+    var showChat by remember { mutableStateOf(false) }
     var showVariants by remember { mutableStateOf(true) }
     var aiBusy by remember { mutableStateOf(false) }
     var aiMsg by remember { mutableStateOf("") }
@@ -344,10 +358,15 @@ fun DetailDialog(
                             model = imgFile,
                             contentDescription = null,
                             modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickableNoRipple { imgFullscreen = true },
                             contentScale = ContentScale.Fit
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Text("点击图片可全屏查看（缩放/旋转/左右滑切题）",
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp))
+                        Spacer(Modifier.height(8.dp))
                     }
                     if (m.parsing) {
                         // 后台解析中提示
@@ -364,7 +383,7 @@ fun DetailDialog(
                         }
                         Spacer(Modifier.height(12.dp))
                     }
-                    if (m.question.isNotBlank()) Section("题干") { Text(m.question, fontSize = 14.sp, lineHeight = 22.sp) }
+                    if (m.question.isNotBlank()) Section("题干") { MathText(m.question, fontSize = 14.sp, lineHeight = 22.sp) }
                     // 知识点标签
                     val kps = m.knowledge.split('、', '，', ',', '；', ';', ' ').map { it.trim() }
                         .filter { it.isNotBlank() }
@@ -385,7 +404,7 @@ fun DetailDialog(
                             }
                         }
                     }
-                    if (m.answer.isNotBlank()) Section("正确答案", Green) { Text(m.answer, fontSize = 14.sp, lineHeight = 22.sp) }
+                    if (m.answer.isNotBlank()) Section("正确答案", Green) { MathText(m.answer, fontSize = 14.sp, lineHeight = 22.sp, color = Green) }
                     // 解题流程：按行拆分编号展示
                     if (m.analysis.isNotBlank()) Section("解题流程") {
                         val lines = m.analysis.split('\n', '；')
@@ -401,13 +420,13 @@ fun DetailDialog(
                                                 RoundedCornerShape(50)
                                             ).padding(horizontal = 7.dp, vertical = 1.dp))
                                         Spacer(Modifier.width(8.dp))
-                                        Text(line, fontSize = 13.5.sp, lineHeight = 21.sp,
+                                        MathText(line, fontSize = 13.5.sp, lineHeight = 21.sp,
                                             modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
                         } else {
-                            Text(m.analysis, fontSize = 14.sp, lineHeight = 22.sp)
+                            MathText(m.analysis, fontSize = 14.sp, lineHeight = 22.sp)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -479,6 +498,13 @@ fun DetailDialog(
                         modifier = Modifier.weight(1f)
                     ) { Text("AI 重新解析", fontSize = 12.5.sp) }
                     Button(
+                        onClick = { showChat = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("问 AI", fontSize = 12.5.sp) }
+                    Button(
                         onClick = {
                             if (!com.jiancuoti.app.net.AiParser.configured) {
                                 aiMsg = "请先在「我的」页配置 AI 解析接口"; return@Button
@@ -528,6 +554,31 @@ fun DetailDialog(
                 }
             }
         }
+    }
+
+    // AI 对话
+    if (showChat) {
+        ChatDialog(
+            contextText = buildString {
+                append("【科目】${m.subject}\n")
+                if (m.knowledge.isNotBlank()) append("【知识点】${m.knowledge}\n")
+                if (m.question.isNotBlank()) append("【题干】${m.question}\n")
+                if (m.answer.isNotBlank()) append("【答案】${m.answer}\n")
+                if (m.analysis.isNotBlank()) append("【解析】${m.analysis.take(400)}")
+            },
+            contextImage = imgFile,
+            onClose = { showChat = false }
+        )
+    }
+
+    // 图片全屏查看（单题，作为快速回看入口）
+    if (imgFullscreen && imgFile != null) {
+        ImageViewer(
+            images = listOf(imgFile),
+            initialIndex = 0,
+            titles = listOf(m.knowledge),
+            onClose = { imgFullscreen = false }
+        )
     }
 
     // 举一反三：变式题弹窗（结果来自全局后台任务，关弹窗再开也能看到）
@@ -602,7 +653,7 @@ private fun VariantsDialog(
                                 }
                                 Spacer(Modifier.height(10.dp))
                                 // 题干
-                                Text(v.question, fontSize = 14.5.sp, lineHeight = 24.sp)
+                                MathText(v.question, fontSize = 14.5.sp, lineHeight = 24.sp)
                                 // 答案与完整解析（点击展开）
                                 if (showAns.contains(i)) {
                                     Spacer(Modifier.height(10.dp))
@@ -611,7 +662,7 @@ private fun VariantsDialog(
                                     Text("【参考答案】", fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.primary)
                                     Spacer(Modifier.height(3.dp))
-                                    Text(v.answer, fontSize = 14.sp, color = Green,
+                                    MathText(v.answer, fontSize = 14.sp, color = Green,
                                         lineHeight = 22.sp)
                                     if (v.analysis.isNotBlank()) {
                                         Spacer(Modifier.height(10.dp))
@@ -631,7 +682,7 @@ private fun VariantsDialog(
                                                                 RoundedCornerShape(50))
                                                             .padding(horizontal = 6.dp, vertical = 1.dp))
                                                     Spacer(Modifier.width(8.dp))
-                                                    Text(step, fontSize = 13.sp, lineHeight = 20.sp,
+                                                    MathText(step, fontSize = 13.sp, lineHeight = 20.sp,
                                                         modifier = Modifier.weight(1f))
                                                 }
                                             }

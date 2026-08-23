@@ -351,7 +351,7 @@ private fun PickDialog(pool: List<Mistake>, initial: Set<String>,
                                     }
                                 }
                                 Spacer(Modifier.height(3.dp))
-                                Text(
+                                MathText(
                                     m.question.ifBlank { "图片题" },
                                     fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -491,7 +491,7 @@ private suspend fun generatePaperPdf(
             val kpTag = if (opts.withKnowledge && q.knowledge.isNotBlank()) " · ${q.knowledge}" else ""
             canvas.drawText("${i + 1}.（${q.subject}$kpTag）", marginX, y, qPaint); y += 16 * scale
             if (q.question.isNotBlank()) {
-                y = drawWrapped(canvas, q.question, bodyPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y = drawWrapped(canvas, renderMixedText(q.question), bodyPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
                 y += 3 * scale
             }
             // 题图：按真实宽高比缩放；高度上限约版心 30%（紧凑排版：大题约3道/页、小题约7道/页）
@@ -515,7 +515,7 @@ private suspend fun generatePaperPdf(
             }
             // 解析（可选）
             if (opts.withAnalysis && q.analysis.isNotBlank()) {
-                y = drawWrapped(canvas, "【解析】" + q.analysis, ansPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y = drawWrapped(canvas, "【解析】" + renderMixedText(q.analysis), ansPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
                 y += 3 * scale
             }
             // 作答区（紧凑：两行书写线）
@@ -534,7 +534,7 @@ private suspend fun generatePaperPdf(
                 if (q.answer.isNotBlank()) {
                     newPageIfNeeded(60 * scale)
                     canvas.drawText("${i + 1}. ", marginX, y, qPaint)
-                    y = drawWrapped(canvas, q.answer, bodyPaint, marginX + 20 * scale, y, contentW - 20 * scale, pageH - 58 * scale) { pageBreakWrapped() }
+                    y = drawWrapped(canvas, renderMixedText(q.answer), bodyPaint, marginX + 20 * scale, y, contentW - 20 * scale, pageH - 58 * scale) { pageBreakWrapped() }
                     y += 6 * scale
                 }
             }

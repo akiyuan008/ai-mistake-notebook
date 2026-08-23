@@ -51,9 +51,9 @@ object Enhance {
         bgLum = p90.toFloat()
 
         // ---- 1) 决策：是否需要处理、强度多大 ----
-        // 亮度已经很好（纸底亮、对比足够）→ 直接返回，不动原图
-        val needBrighten = bgLum < 205f               // 纸底偏暗才提亮
-        val needContrast = contrast < 110             // 对比不足才拉伸
+        // 风格预设：曝光+ 对比+ 锐度+（利于 AI 识别手写体）
+        val needBrighten = bgLum < 225f               // 纸底不够亮就提亮
+        val needContrast = contrast < 130             // 对比不足就拉伸
         val inkRatio = darkPixels.toFloat() / samples
         if (!needBrighten && !needContrast) return src
 
@@ -67,10 +67,10 @@ object Enhance {
         val unevenness = (cornerLums.max() - cornerLums.min()).toFloat()
         val needFlat = unevenness > 28f               // 明显阴影才做背景归一化
 
-        // 提亮目标：把纸底提到 ~240，但绝不超 250（防过曝）
-        val brighten = if (needBrighten) min(1.25f, 238f / max(60f, bgLum)) else 1f
+        // 提亮目标：把纸底提到 ~245，但绝不超 252（防过曝）
+        val brighten = if (needBrighten) min(1.35f, 245f / max(60f, bgLum)) else 1f
         // 对比拉伸：对比越低拉得越多，有上限
-        val contrastGain = if (needContrast) min(1.35f, 105f / max(35f, contrast.toFloat())) else 1f
+        val contrastGain = if (needContrast) min(1.5f, 115f / max(35f, contrast.toFloat())) else 1f
         // 字迹加深：字越少（标题/公式题）越不能压太狠
         val darken = if (inkRatio < 0.06f) 0.95f else 0.88f
 
@@ -141,7 +141,35 @@ object Enhance {
             }
             out.setPixels(rowOut, 0, w, 0, yy, w, 1)
         }
-        return out
+
+        // ---- 4) 轻锐化（unsharp mask 3x3）：增强字迹边缘，利于 AI 识别手写体 ----
+        val src2 = out
+        val out2 = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val rIn = IntArray(w); val rMid = IntArray(w); val rOut = IntArray(w)
+        for (yy in 0 until h) {
+            if (yy == 0) { src2.getPixels(rMid, 0, w, 0, 0, w, 1); System.arraycopy(rMid, 0, rIn, 0, w) }
+            else src2.getPixels(rIn, 0, w, 0, yy - 1, w, 1)
+            if (yy > 0) src2.getPixels(rMid, 0, w, 0, yy, w, 1)
+            if (yy < h - 1) src2.getPixels(rOut, 0, w, 0, yy + 1, w, 1)
+            else System.arraycopy(rMid, 0, rOut, 0, w)
+            val rowSharp = IntArray(w)
+            for (xx in 0 until w) {
+                val p = rMid[xx]
+                val amount = 0.45f   // 锐化强度（手写字迹更清晰）
+                fun ch(shift: Int): Int {
+                    val c = (p shr shift) and 0xFF
+                    val l = (rMid[(xx - 1).coerceAtLeast(0)] shr shift) and 0xFF
+                    val r = (rMid[(xx + 1).coerceAtMost(w - 1)] shr shift) and 0xFF
+                    val u = (rIn[xx] shr shift) and 0xFF
+                    val d = (rOut[xx] shr shift) and 0xFF
+                    val blur = (l + r + u + d + c * 4) / 8f
+                    return clamp(c + (c - blur) * amount * 2.2f).toInt()
+                }
+                rowSharp[xx] = (0xFF shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+            }
+            out2.setPixels(rowSharp, 0, w, 0, yy, w, 1)
+        }
+        return out2
     }
 
     private fun regionLum(src: Bitmap, x0: Int, y0: Int, w: Int, h: Int): Int {
