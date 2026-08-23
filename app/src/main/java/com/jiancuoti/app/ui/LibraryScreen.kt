@@ -10,8 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +22,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.jiancuoti.app.data.SUBJECTS
 import com.jiancuoti.app.data.Mistake
@@ -46,25 +44,33 @@ fun subjColor(s: String) = SUBJ_COLORS[s] ?: Color(0xFF64748B)
 fun fmtDate(t: Long): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(t))
 
+/** 取最后一级知识点：按 ·、/、> 等分隔取末段 */
+fun lastKnowledge(k: String): String {
+    if (k.isBlank()) return ""
+    val seg = k.split('·', '•', '>', '/', '|').map { it.trim() }.filter { it.isNotBlank() }
+    return seg.lastOrNull()?.trim() ?: k.trim()
+}
+
+/** 全屏页面导航回调集合（由 MainActivity 提供，页面铺满全屏、盖住 Dock） */
+class PageNav(
+    val openDetail: (Mistake) -> Unit,
+    val openEdit: (Mistake) -> Unit,
+    val openChat: (String, java.io.File?) -> Unit,
+    val openVariants: (List<com.jiancuoti.app.net.VariantQuestion>, Mistake) -> Unit,
+    val openViewer: (List<java.io.File>, Int, List<String>) -> Unit
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
+fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}, nav: PageNav) {
     var kw by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf("全部") }
     var status by remember { mutableStateOf("全部") }
     var timeRange by remember { mutableStateOf("全部") }
-    var detail by remember { mutableStateOf<Mistake?>(null) }
-    var editing by remember { mutableStateOf<Mistake?>(null) }
-    var viewerIndex by remember { mutableStateOf<Int?>(null) }
-    var version by remember { mutableIntStateOf(0) }
+    // 数据版本：任何数据变更（导入/解析完成/删除/云同步）自动刷新列表
+    val rev = Store.revision.intValue
 
-    // 实时刷新：错题数量或任一解析状态变化时重算列表
-    val parsingCount = Store.mistakes.count { it.parsing }
-    LaunchedEffect(Store.mistakes.size, parsingCount) {
-        version++
-    }
-
-    val list = remember(kw, subject, status, timeRange, version) {
+    val list = remember(kw, subject, status, timeRange, rev) {
         val timeStart = when (timeRange) {
             "近1天" -> System.currentTimeMillis() - 1L * 86400000
             "近7天" -> System.currentTimeMillis() - 7L * 86400000
@@ -88,7 +94,7 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // 搜索栏（玻璃拟态，高度自适应不截字）
+        // 搜索栏
         Surface(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             shape = RoundedCornerShape(24.dp),
@@ -104,9 +110,7 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
                 Spacer(Modifier.width(8.dp))
                 TextField(
                     value = kw, onValueChange = { kw = it },
-                    placeholder = {
-                        Text("搜索题干、答案、知识点…", fontSize = 13.5.sp)
-                    },
+                    placeholder = { Text("搜索题干、答案、知识点…", fontSize = 13.5.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -169,7 +173,6 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
                 }
             }
         } else {
-            // 快速回看 + 草稿箱入口
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -187,7 +190,13 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
                             color = MaterialTheme.colorScheme.error)
                     }
                 }
-                TextButton(onClick = { viewerIndex = 0 }) {
+                TextButton(onClick = {
+                    val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
+                    if (imgs.isNotEmpty()) {
+                        val firstWithImg = list.indexOfFirst { Store.imgFile(it.imageFile) != null }
+                        nav.openViewer(imgs, 0.coerceAtLeast(0), list.map { it.knowledge })
+                    }
+                }) {
                     Text("快速回看 · 左右滑切题", fontSize = 12.5.sp)
                 }
             }
@@ -196,43 +205,16 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(list, key = { it.id }) { m ->
-                    MistakeCard(m, onOpen = { detail = m }, onOpenImage = {
-                        val idx = list.indexOfFirst { it.id == m.id }
-                        viewerIndex = if (idx >= 0) idx else 0
+                    MistakeCard(m, onOpen = { nav.openDetail(m) }, onOpenImage = {
+                        val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
+                        val idx = imgs.indexOfFirst { it.name == m.imageFile }
+                        if (idx >= 0) nav.openViewer(imgs, idx, list.map { it.knowledge })
+                        else nav.openDetail(m)
                     })
                 }
                 item { Spacer(Modifier.height(90.dp)) }
             }
         }
-    }
-
-    // 全屏快速回看（覆盖层，无 Dock 栏）
-    viewerIndex?.let { idx ->
-        val imgs = list.mapNotNull { Store.imgFile(it.imageFile) }
-        if (imgs.isEmpty()) { viewerIndex = null } else {
-            ImageViewer(
-                images = imgs,
-                initialIndex = idx,
-                titles = list.map { it.knowledge },
-                onClose = { viewerIndex = null }
-            )
-        }
-    }
-
-    detail?.let { m ->
-        DetailDialog(
-            m,
-            onClose = { detail = null },
-            onEdit = { editing = m; detail = null },
-            onChanged = { version++; onChanged() }
-        )
-    }
-    editing?.let { m ->
-        EditDialog(
-            m,
-            onClose = { editing = null },
-            onSaved = { editing = null; version++; onChanged() }
-        )
     }
 }
 
@@ -265,12 +247,17 @@ fun MistakeCard(m: Mistake, onOpen: () -> Unit, onOpenImage: () -> Unit = onOpen
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SubjectTag(m.subject)
-                    if (m.knowledge.isNotBlank()) {
+                    // 知识点标签：最后一级知识点
+                    val kp = lastKnowledge(m.knowledge)
+                    if (kp.isNotBlank()) {
                         Spacer(Modifier.width(6.dp))
-                        Text(m.knowledge, fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false))
+                        KnowledgeTag(kp)
+                    }
+                    if (m.variantOf.isNotBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text("变式", fontSize = 10.sp, color = Amber,
+                            modifier = Modifier.background(Amber.copy(alpha = 0.12f),
+                                RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.dp))
                     }
                     if (m.mastered) {
                         Spacer(Modifier.width(6.dp))
@@ -311,419 +298,408 @@ fun SubjectTag(s: String) {
     )
 }
 
+/** 知识点标签（最后一级） */
 @Composable
-fun DetailDialog(
-    m: Mistake, onClose: () -> Unit, onEdit: () -> Unit, onChanged: () -> Unit
+fun KnowledgeTag(kp: String) {
+    Text(
+        kp, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary,
+        maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), RoundedCornerShape(50))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    )
+}
+
+/* ============================================================
+ * 错题详情页（全屏页面，非弹窗）
+ * ============================================================ */
+@Composable
+fun DetailPage(
+    m: Mistake,
+    onBack: () -> Unit,
+    nav: PageNav,
+    onChanged: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val imgFile = Store.imgFile(m.imageFile)
-    var imgFullscreen by remember { mutableStateOf(false) }
-    var showChat by remember { mutableStateOf(false) }
-    var showVariants by remember { mutableStateOf(true) }
     var aiBusy by remember { mutableStateOf(false) }
     var aiMsg by remember { mutableStateOf("") }
+    var preferReal by remember { mutableStateOf(false) }
+    // 页面打开时若已有变式结果，不自动弹出，仅显示入口
+    val rev = Store.revision.intValue
 
-    Dialog(onDismissRequest = onClose) {
-        Surface(
-            Modifier.fillMaxWidth().fillMaxHeight(0.86f),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface
+    val vBusy = com.jiancuoti.app.net.BgTasks.variantsBusy[m.id] == true
+    val vErr = com.jiancuoti.app.net.BgTasks.variantsError[m.id]
+    val vDone = com.jiancuoti.app.net.BgTasks.variants[m.id]
+
+    FullScreenPage(
+        titleBar = {
+            SubjectTag(m.subject)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                lastKnowledge(m.knowledge).ifBlank { "错题详情" },
+                fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        },
+        onBack = onBack
+    ) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SubjectTag(m.subject)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        m.knowledge.ifBlank { "错题详情" },
-                        fontSize = 15.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onClose) { Text("关闭") }
+            if (imgFile != null) {
+                AsyncImage(
+                    model = imgFile,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickableNoRipple { nav.openViewer(listOf(imgFile), 0, listOf(m.knowledge)) },
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+            if (m.parsing) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            RoundedCornerShape(14.dp))
+                        .padding(12.dp)) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("AI 解析生成中…完成本题后自动更新，可先返回",
+                        fontSize = 12.5.sp, color = MaterialTheme.colorScheme.primary)
                 }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(16.dp)
-                ) {
-                    if (imgFile != null) {
-                        AsyncImage(
-                            model = imgFile,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickableNoRipple { imgFullscreen = true },
-                            contentScale = ContentScale.Fit
-                        )
-                        Text("点击图片可全屏查看（缩放/旋转/左右滑切题）",
-                            fontSize = 10.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp))
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    if (m.parsing) {
-                        // 后台解析中提示
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                    RoundedCornerShape(14.dp))
-                                .padding(12.dp)) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("AI 解析生成中…完成本题后自动更新，可关闭本页",
-                                fontSize = 12.5.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    if (m.question.isNotBlank()) Section("题干") { MathText(m.question, fontSize = 14.sp, lineHeight = 22.sp) }
-                    // 知识点标签
-                    val kps = m.knowledge.split('、', '，', ',', '；', ';', ' ').map { it.trim() }
-                        .filter { it.isNotBlank() }
-                    if (kps.isNotEmpty()) Section("知识点") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                            kps.forEach { kp ->
-                                Text(
-                                    kp, fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .background(
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            RoundedCornerShape(50)
-                                        )
-                                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                Spacer(Modifier.height(12.dp))
+            }
+            if (m.question.isNotBlank()) Section("题干") { MathText(m.question, fontSize = 14.5.sp, lineHeight = 23.sp) }
+            // 知识点标签
+            val kps = m.knowledge.split('、', '，', ',', '；', ';').map { it.trim() }
+                .filter { it.isNotBlank() }
+            if (kps.isNotEmpty()) Section("知识点") {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    kps.forEach { kp ->
+                        Text(
+                            lastKnowledge(kp), fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                    RoundedCornerShape(50)
                                 )
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+            if (m.answer.isNotBlank()) Section("正确答案", Green) { MathText(m.answer, fontSize = 14.5.sp, lineHeight = 23.sp, color = Green) }
+            if (m.analysis.isNotBlank()) Section("解题流程") {
+                val lines = m.analysis.split('\n', '；')
+                    .map { it.trim().replace(Regex("^[①②③④⑤⑥⑦⑧⑨]|^\\d{1,2}[.、）)]\\s*"), "").trim() }
+                    .filter { it.length > 1 }
+                if (lines.size > 1) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        lines.forEachIndexed { i, line ->
+                            Row {
+                                Text("${i + 1}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.background(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        RoundedCornerShape(50)
+                                    ).padding(horizontal = 7.dp, vertical = 1.dp))
+                                Spacer(Modifier.width(8.dp))
+                                MathText(line, fontSize = 13.5.sp, lineHeight = 21.sp,
+                                    modifier = Modifier.weight(1f))
                             }
                         }
                     }
-                    if (m.answer.isNotBlank()) Section("正确答案", Green) { MathText(m.answer, fontSize = 14.sp, lineHeight = 22.sp, color = Green) }
-                    // 解题流程：按行拆分编号展示
-                    if (m.analysis.isNotBlank()) Section("解题流程") {
-                        val lines = m.analysis.split('\n', '；')
-                            .map { it.trim().replace(Regex("^[①②③④⑤⑥⑦⑧⑨]|^\\d{1,2}[.、）)]\\s*"), "").trim() }
-                            .filter { it.length > 1 }
-                        if (lines.size > 1) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                lines.forEachIndexed { i, line ->
-                                    Row {
-                                        Text("${i + 1}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.background(
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                                RoundedCornerShape(50)
-                                            ).padding(horizontal = 7.dp, vertical = 1.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        MathText(line, fontSize = 13.5.sp, lineHeight = 21.sp,
-                                            modifier = Modifier.weight(1f))
-                                    }
-                                }
+                } else {
+                    MathText(m.analysis, fontSize = 14.sp, lineHeight = 22.sp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "录入 ${fmtDate(m.createdAt)} · 错误 ${m.errorCount} 次 · ${if (m.mastered) "已掌握" else "未掌握"}",
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // 举一反三入口/状态（不再自动弹出盖住详情）
+            Spacer(Modifier.height(14.dp))
+            GlassCard(shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("举一反三", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        if (vDone != null) {
+                            Button(onClick = { nav.openVariants(vDone, m) }) {
+                                Text("查看变式题", color = Color.White, fontSize = 12.5.sp)
                             }
-                        } else {
-                            MathText(m.analysis, fontSize = 14.sp, lineHeight = 22.sp)
                         }
+                    }
+                    val statusText = when {
+                        vBusy -> "变式题后台生成中…可先返回其他页面"
+                        vErr != null -> vErr
+                        aiMsg.isNotBlank() -> aiMsg
+                        else -> ""
+                    }
+                    if (statusText.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(statusText, fontSize = 12.sp,
+                            color = if (vErr != null) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "录入 ${fmtDate(m.createdAt)} · 错误 ${m.errorCount} 次 · ${if (m.mastered) "已掌握" else "未掌握"}",
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                // AI 操作区：重新解析 + 举一反三（均后台运行，关闭弹窗不中断）
-                val vBusy = com.jiancuoti.app.net.BgTasks.variantsBusy[m.id] == true
-                val vErr = com.jiancuoti.app.net.BgTasks.variantsError[m.id]
-                val vDone = com.jiancuoti.app.net.BgTasks.variants[m.id]
-                var preferReal by remember { mutableStateOf(true) }
-                val aiMsg2 = when {
-                    vBusy -> "变式题后台生成中…可关闭本页"
-                    vErr != null -> vErr
-                    aiMsg.isNotBlank() -> aiMsg
-                    else -> ""
-                }
-                if (aiMsg2.isNotBlank()) {
-                    Text(aiMsg2, fontSize = 12.sp,
-                        color = if (vErr != null) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp))
-                }
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("优先匹配近年真题", fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f))
-                    Switch(checked = preferReal, onCheckedChange = { preferReal = it })
-                }
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            if (aiBusy) return@OutlinedButton
-                            val f = Store.imgFile(m.imageFile)
-                            if (f == null) { aiMsg = "该题没有图片，无法重新解析"; return@OutlinedButton }
-                            if (!com.jiancuoti.app.net.AiParser.configured) {
-                                aiMsg = "请先在「我的」页配置 AI 解析接口"; return@OutlinedButton
-                            }
-                            aiBusy = true; aiMsg = "AI 解析中…（关闭本页不中断）"
-                            com.jiancuoti.app.net.BgTasks.scope.launch {
-                                try {
-                                    val bmp = withContext(kotlinx.coroutines.Dispatchers.IO) { loadBitmap(f, 1600) }
-                                    val r = com.jiancuoti.app.net.AiParser.parse(bmp)
-                                    m.subject = r.subject; m.knowledge = r.knowledge
-                                    m.question = r.question; m.answer = r.answer
-                                    m.analysis = r.analysis; m.parsedBy = "api"
-                                    m.parsing = false
-                                    m.updatedAt = System.currentTimeMillis()
-                                    Store.saveMistakes()
-                                    withContext(kotlinx.coroutines.Dispatchers.IO) { Supabase.pushMistake(m) }
-                                    aiBusy = false
-                                    onChanged()
-                                } catch (e: Exception) {
-                                    aiBusy = false
-                                    aiMsg = "解析失败：${e.message?.take(90)}"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("优先匹配近年真题", fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f))
+                        Switch(checked = preferReal, onCheckedChange = { preferReal = it },
+                            modifier = Modifier.height(24.dp))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                if (aiBusy) return@OutlinedButton
+                                val f = Store.imgFile(m.imageFile)
+                                if (f == null) { aiMsg = "该题没有图片，无法重新解析"; return@OutlinedButton }
+                                if (!com.jiancuoti.app.net.AiParser.configured) {
+                                    aiMsg = "请先在「我的」页配置 AI 解析接口"; return@OutlinedButton
                                 }
-                            }
-                        },
-                        enabled = !aiBusy,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("AI 重新解析", fontSize = 12.5.sp) }
-                    Button(
-                        onClick = { showChat = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                        modifier = Modifier.weight(1f)
-                    ) { Text("问 AI", fontSize = 12.5.sp) }
-                    Button(
-                        onClick = {
-                            if (!com.jiancuoti.app.net.AiParser.configured) {
-                                aiMsg = "请先在「我的」页配置 AI 解析接口"; return@Button
-                            }
-                            com.jiancuoti.app.net.BgTasks.startVariants(m, preferReal)
-                        },
-                        enabled = !vBusy,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            when {
-                                vBusy -> "后台生成中…"
-                                vDone != null -> "再看一次"
-                                else -> "举一反三"
+                                aiBusy = true; aiMsg = "AI 解析中…（返回不中断）"
+                                com.jiancuoti.app.net.BgTasks.scope.launch {
+                                    try {
+                                        val bmp = withContext(kotlinx.coroutines.Dispatchers.IO) { loadBitmap(f, 1600) }
+                                        val r = com.jiancuoti.app.net.AiParser.parse(bmp)
+                                        m.subject = r.subject; m.knowledge = r.knowledge
+                                        m.question = r.question; m.answer = r.answer
+                                        m.analysis = r.analysis; m.parsedBy = "api"
+                                        m.parsing = false
+                                        m.updatedAt = System.currentTimeMillis()
+                                        Store.saveMistakes()
+                                        withContext(kotlinx.coroutines.Dispatchers.IO) { Supabase.pushMistake(m) }
+                                        aiBusy = false; aiMsg = ""
+                                        onChanged()
+                                    } catch (e: Exception) {
+                                        aiBusy = false
+                                        aiMsg = "解析失败：${e.message?.take(90)}"
+                                    }
+                                }
                             },
-                            color = Color.White, fontSize = 12.5.sp
-                        )
+                            enabled = !aiBusy,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("重新解析", fontSize = 12.5.sp) }
+                        Button(
+                            onClick = {
+                                if (!com.jiancuoti.app.net.AiParser.configured) {
+                                    aiMsg = "请先在「我的」页配置 AI 解析接口"; return@Button
+                                }
+                                com.jiancuoti.app.net.BgTasks.startVariants(m, preferReal)
+                            },
+                            enabled = !vBusy,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (vBusy) "生成中…" else if (vDone != null) "重新生成" else "生成变式题",
+                                color = Color.White, fontSize = 12.5.sp)
+                        }
                     }
                 }
-                Row(
-                    Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            Store.mistakes.remove(m)
-                            Store.imgFile(m.imageFile)?.delete()
-                            Store.saveMistakes()
-                            scope.launch { Supabase.deleteMistake(m.id) }
-                            onChanged(); onClose()
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("删除", color = Red) }
-                    OutlinedButton(
-                        onClick = {
-                            m.errorCount++; m.updatedAt = System.currentTimeMillis()
-                            Store.saveMistakes()
-                            scope.launch { Supabase.pushMistake(m) }
-                            onChanged()
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("又错了") }
-                    Button(
-                        onClick = onEdit,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("编辑", color = Color.White) }
-                }
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // 底部操作栏
+        Surface(
+            color = MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        Store.mistakes.remove(m)
+                        Store.imgFile(m.imageFile)?.delete()
+                        Store.saveMistakes()
+                        scope.launch { Supabase.deleteMistake(m.id) }
+                        onChanged(); onBack()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("删除", color = Red) }
+                OutlinedButton(
+                    onClick = {
+                        m.errorCount++; m.updatedAt = System.currentTimeMillis()
+                        Store.saveMistakes()
+                        scope.launch { Supabase.pushMistake(m) }
+                        onChanged()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("又错了") }
+                Button(
+                    onClick = { nav.openEdit(m) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("编辑", color = Color.White) }
             }
         }
     }
+}
 
-    // AI 对话
-    if (showChat) {
-        ChatDialog(
-            contextText = buildString {
-                append("【科目】${m.subject}\n")
-                if (m.knowledge.isNotBlank()) append("【知识点】${m.knowledge}\n")
-                if (m.question.isNotBlank()) append("【题干】${m.question}\n")
-                if (m.answer.isNotBlank()) append("【答案】${m.answer}\n")
-                if (m.analysis.isNotBlank()) append("【解析】${m.analysis.take(400)}")
-            },
-            contextImage = imgFile,
-            onClose = { showChat = false }
-        )
-    }
-
-    // 图片全屏查看（单题，作为快速回看入口）
-    if (imgFullscreen && imgFile != null) {
-        ImageViewer(
-            images = listOf(imgFile),
-            initialIndex = 0,
-            titles = listOf(m.knowledge),
-            onClose = { imgFullscreen = false }
-        )
-    }
-
-    // 举一反三：变式题弹窗（结果来自全局后台任务，关弹窗再开也能看到）
-    val doneVariants = com.jiancuoti.app.net.BgTasks.variants[m.id]
-    if (doneVariants != null && showVariants) {
-        VariantsDialog(
-            doneVariants, m,
-            onClose = { showVariants = false },
-            onSavedVariant = { onChanged() }
-        )
+/* ============================================================
+ * 全屏页面骨架：状态栏留白 + 返回按钮 + 标题栏
+ * ============================================================ */
+@Composable
+fun FullScreenPage(
+    onBack: () -> Unit,
+    titleBar: @Composable RowScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                }
+                titleBar()
+                Spacer(Modifier.width(8.dp))
+            }
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            content()
+        }
     }
 }
 
+/* ============================================================
+ * 举一反三页面（全屏）
+ * ============================================================ */
 @Composable
-private fun VariantsDialog(
+fun VariantsPage(
     vs: List<com.jiancuoti.app.net.VariantQuestion>,
     origin: Mistake,
-    onClose: () -> Unit,
+    onBack: () -> Unit,
     onSavedVariant: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var savedIds by remember { mutableStateOf(setOf<String>()) }
-    Dialog(onDismissRequest = onClose) {
-        Surface(
-            Modifier.fillMaxWidth().fillMaxHeight(0.86f),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface
+    var showAns by remember { mutableStateOf(setOf<Int>()) }
+
+    FullScreenPage(
+        onBack = onBack,
+        titleBar = {
+            Column(Modifier.weight(1f)) {
+                Text("举一反三 · 变式练习", fontSize = 16.sp)
+                Text("点「存入错题本」加入组卷可选池",
+                    fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    ) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("举一反三 · 变式练习", fontSize = 16.sp)
-                        Text(
-                            "点「存入错题本」加入组卷可选池",
-                            fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    TextButton(onClick = onClose) { Text("关闭") }
-                }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    var showAns by remember { mutableStateOf(setOf<Int>()) }
-                    vs.forEachIndexed { i, v ->
-                        val key = "${origin.id}_v$i"
-                        val saved = savedIds.contains(key)
-                        GlassCard(shape = RoundedCornerShape(20.dp)) {
-                            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                // 头部：变式序号 + 来源 + 难度
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("变式 ${i + 1}", fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.primary)
-                                    if (v.source.isNotBlank()) {
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(v.source, fontSize = 10.5.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier
-                                                .background(MaterialTheme.colorScheme.surfaceVariant,
-                                                    RoundedCornerShape(50))
-                                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    Spacer(Modifier.weight(1f))
-                                    Text("★".repeat(v.difficulty) + "☆".repeat(3 - v.difficulty),
-                                        fontSize = 11.sp, color = Amber)
-                                }
+            vs.forEachIndexed { i, v ->
+                val key = "${origin.id}_v$i"
+                val saved = savedIds.contains(key)
+                GlassCard(shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("变式 ${i + 1}", fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.primary)
+                            if (v.source.isNotBlank()) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(v.source, fontSize = 10.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceVariant,
+                                            RoundedCornerShape(50))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            Text("★".repeat(v.difficulty) + "☆".repeat(3 - v.difficulty),
+                                fontSize = 11.sp, color = Amber)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        MathText(v.question, fontSize = 14.5.sp, lineHeight = 24.sp)
+                        if (showAns.contains(i)) {
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                            Spacer(Modifier.height(10.dp))
+                            Text("【参考答案】", fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(3.dp))
+                            MathText(v.answer, fontSize = 14.sp, color = Green, lineHeight = 22.sp)
+                            if (v.analysis.isNotBlank()) {
                                 Spacer(Modifier.height(10.dp))
-                                // 题干
-                                MathText(v.question, fontSize = 14.5.sp, lineHeight = 24.sp)
-                                // 答案与完整解析（点击展开）
-                                if (showAns.contains(i)) {
-                                    Spacer(Modifier.height(10.dp))
-                                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                                    Spacer(Modifier.height(10.dp))
-                                    Text("【参考答案】", fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.height(3.dp))
-                                    MathText(v.answer, fontSize = 14.sp, color = Green,
-                                        lineHeight = 22.sp)
-                                    if (v.analysis.isNotBlank()) {
-                                        Spacer(Modifier.height(10.dp))
-                                        Text("【完整解析】", fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.primary)
-                                        Spacer(Modifier.height(3.dp))
-                                        val steps = v.analysis.split('\n')
-                                            .map { it.trim() }
-                                            .filter { it.isNotBlank() }
-                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            steps.forEachIndexed { si, step ->
-                                                Row {
-                                                    Text("${si + 1}", fontSize = 10.sp,
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier
-                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                                                RoundedCornerShape(50))
-                                                            .padding(horizontal = 6.dp, vertical = 1.dp))
-                                                    Spacer(Modifier.width(8.dp))
-                                                    MathText(step, fontSize = 13.sp, lineHeight = 20.sp,
-                                                        modifier = Modifier.weight(1f))
-                                                }
-                                            }
+                                Text("【完整解析】", fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.height(3.dp))
+                                val steps = v.analysis.split('\n')
+                                    .map { it.trim() }
+                                    .filter { it.isNotBlank() }
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    steps.forEachIndexed { si, step ->
+                                        Row {
+                                            Text("${si + 1}", fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                                        RoundedCornerShape(50))
+                                                    .padding(horizontal = 6.dp, vertical = 1.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            MathText(step, fontSize = 13.sp, lineHeight = 20.sp,
+                                                modifier = Modifier.weight(1f))
                                         }
                                     }
                                 }
-                                Spacer(Modifier.height(10.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TextButton(
-                                        onClick = {
-                                            showAns = if (showAns.contains(i)) showAns - i else showAns + i
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    ) { Text(if (showAns.contains(i)) "收起答案" else "查看答案与解析", fontSize = 12.5.sp) }
-                                    Button(
-                                        onClick = {
-                                            if (saved) return@Button
-                                            val m = Mistake(
-                                                id = Store.uid(),
-                                                subject = origin.subject,
-                                                knowledge = origin.knowledge.ifBlank { v.source },
-                                                question = v.question,
-                                                answer = v.answer,
-                                                analysis = v.analysis,
-                                                parsedBy = "variant",
-                                                variantOf = origin.id
-                                            )
-                                            Store.mistakes.add(0, m)
-                                            Store.saveMistakes()
-                                            savedIds = savedIds + key
-                                            onSavedVariant()
-                                            scope.launch { Supabase.pushMistake(m) }
-                                        },
-                                        enabled = !saved,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(if (saved) "已存入" else "存入错题本",
-                                            color = Color.White, fontSize = 12.5.sp)
-                                    }
-                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(
+                                onClick = {
+                                    showAns = if (showAns.contains(i)) showAns - i else showAns + i
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) { Text(if (showAns.contains(i)) "收起答案" else "查看答案与解析", fontSize = 12.5.sp) }
+                            Button(
+                                onClick = {
+                                    if (saved) return@Button
+                                    val m = Mistake(
+                                        id = Store.uid(),
+                                        subject = origin.subject,
+                                        knowledge = origin.knowledge.ifBlank { v.source },
+                                        question = v.question,
+                                        answer = v.answer,
+                                        analysis = v.analysis,
+                                        parsedBy = "variant",
+                                        variantOf = origin.id
+                                    )
+                                    Store.mistakes.add(0, m)
+                                    Store.saveMistakes()
+                                    savedIds = savedIds + key
+                                    onSavedVariant()
+                                    scope.launch { Supabase.pushMistake(m) }
+                                },
+                                enabled = !saved,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(if (saved) "已存入" else "存入错题本",
+                                    color = Color.White, fontSize = 12.5.sp)
                             }
                         }
                     }
                 }
             }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -736,12 +712,15 @@ private fun Section(title: String, color: Color = MaterialTheme.colorScheme.prim
     Spacer(Modifier.height(12.dp))
 }
 
+/* ============================================================
+ * 编辑页（全屏）
+ * ============================================================ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditDialog(
+fun EditPage(
     m: Mistake,
     title: String = "编辑错题",
-    onClose: () -> Unit,
+    onBack: () -> Unit,
     onSaved: () -> Unit
 ) {
     var subject by remember { mutableStateOf(m.subject) }
@@ -752,91 +731,79 @@ fun EditDialog(
     val scope = rememberCoroutineScope()
     val imgFile = Store.imgFile(m.imageFile)
 
-    Dialog(onDismissRequest = onClose) {
-        Surface(
-            Modifier.fillMaxWidth().fillMaxHeight(0.88f),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface
+    FullScreenPage(
+        onBack = onBack,
+        titleBar = {
+            Text(title, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Button(onClick = {
+                m.subject = subject; m.knowledge = knowledge.trim()
+                m.question = question.trim(); m.answer = answer.trim()
+                m.analysis = analysis.trim(); m.updatedAt = System.currentTimeMillis()
+                Store.saveMistakes()
+                scope.launch { Supabase.pushMistake(m) }
+                onSaved()
+            }) { Text("保存", color = Color.White) }
+        }
+    ) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(title, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClose) { Text("取消") }
-                    Button(onClick = {
-                        m.subject = subject; m.knowledge = knowledge.trim()
-                        m.question = question.trim(); m.answer = answer.trim()
-                        m.analysis = analysis.trim(); m.updatedAt = System.currentTimeMillis()
-                        Store.saveMistakes()
-                        scope.launch { Supabase.pushMistake(m) }
-                        onSaved()
-                    }) { Text("保存", color = Color.White) }
-                }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // 原图预览
-                    if (imgFile != null) {
-                        AsyncImage(
-                            model = imgFile,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxWidth()
-                                .heightIn(max = 180.dp)
-                                .clip(RoundedCornerShape(14.dp)),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        var expanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
-                            expanded = expanded, onExpandedChange = { expanded = it },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            OutlinedTextField(
-                                value = subject, onValueChange = {},
-                                readOnly = true, label = { Text("科目") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                                SUBJECTS.forEach { s ->
-                                    DropdownMenuItem(text = { Text(s) }, onClick = {
-                                        subject = s; expanded = false
-                                    })
-                                }
-                            }
-                        }
-                        OutlinedTextField(
-                            value = knowledge, onValueChange = { knowledge = it },
-                            label = { Text("知识点") },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    OutlinedTextField(
-                        value = question, onValueChange = { question = it },
-                        label = { Text("题干") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3, maxLines = 6
-                    )
-                    OutlinedTextField(
-                        value = answer, onValueChange = { answer = it },
-                        label = { Text("正确答案") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2, maxLines = 4
-                    )
-                    OutlinedTextField(
-                        value = analysis, onValueChange = { analysis = it },
-                        label = { Text("解析") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3, maxLines = 8
-                    )
-                }
+            if (imgFile != null) {
+                AsyncImage(
+                    model = imgFile,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxWidth()
+                        .heightIn(max = 180.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Fit
+                )
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                var expanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = expanded, onExpandedChange = { expanded = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = subject, onValueChange = {},
+                        readOnly = true, label = { Text("科目") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        SUBJECTS.forEach { s ->
+                            DropdownMenuItem(text = { Text(s) }, onClick = {
+                                subject = s; expanded = false
+                            })
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = knowledge, onValueChange = { knowledge = it },
+                    label = { Text("知识点") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            OutlinedTextField(
+                value = question, onValueChange = { question = it },
+                label = { Text("题干") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3, maxLines = 6
+            )
+            OutlinedTextField(
+                value = answer, onValueChange = { answer = it },
+                label = { Text("正确答案") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2, maxLines = 4
+            )
+            OutlinedTextField(
+                value = analysis, onValueChange = { analysis = it },
+                label = { Text("解析") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3, maxLines = 8
+            )
         }
     }
 }

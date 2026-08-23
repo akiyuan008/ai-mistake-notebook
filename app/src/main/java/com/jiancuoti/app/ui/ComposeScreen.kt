@@ -56,8 +56,11 @@ fun ComposeScreen(onChanged: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var toast by remember { mutableStateOf("") }
+    var confirmDel by remember { mutableStateOf<Paper?>(null) }
+    // 数据版本：组卷/删除/入库变更后自动刷新
+    val rev = Store.revision.intValue
 
-    val pool = remember(subject, kp, errMin, range, mastered) {
+    val pool = remember(subject, kp, errMin, range, mastered, rev) {
         Store.mistakes.filter { m ->
             (mastered == "全部" || (mastered == "已掌握") == m.mastered) &&
             (subject == "全部" || m.subject == subject) &&
@@ -150,7 +153,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
         Spacer(Modifier.height(16.dp))
 
         // 已创建试卷
-        val myPapers = Store.papers
+        val myPapers = remember(rev) { Store.papers.toList() }
         if (myPapers.isNotEmpty()) {
             Text("已创建的试卷", fontSize = 15.sp, modifier = Modifier.padding(bottom = 8.dp))
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -159,13 +162,33 @@ fun ComposeScreen(onChanged: () -> Unit) {
                         picked = p.questions.filter { id -> Store.mistakes.any { it.id == id } }.toSet()
                         if (picked.isEmpty()) { toast = "卷中题目已不在错题库" } else titleDialog = true
                     }, onDelete = {
-                        Store.papers.remove(p); Store.savePapers(); onChanged()
+                        confirmDel = p
                     })
                     Spacer(Modifier.height(8.dp))
                 }
                 Spacer(Modifier.height(90.dp))
             }
         }
+    }
+
+    // 删除确认
+    confirmDel?.let { p ->
+        AlertDialog(
+            onDismissRequest = { confirmDel = null },
+            title = { Text("删除试卷") },
+            text = { Text("确定删除「${p.name}」吗？（不会删除题目本身）") },
+            confirmButton = {
+                TextButton(onClick = {
+                    Store.papers.remove(p)
+                    Store.savePapers()
+                    confirmDel = null
+                    onChanged()
+                }) { Text("删除", color = Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDel = null }) { Text("取消") }
+            }
+        )
     }
 
     if (picking) {
@@ -281,7 +304,7 @@ private fun BigAction(icon: @Composable () -> Unit, title: String, sub: String, 
 @Composable
 private fun PaperRow(p: Paper, onOpen: () -> Unit, onDelete: () -> Unit) {
     GlassCard(shape = RoundedCornerShape(20.dp)) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(p.name, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -289,9 +312,7 @@ private fun PaperRow(p: Paper, onOpen: () -> Unit, onDelete: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = onOpen) { Text("查看") }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.outline)
-            }
+            TextButton(onClick = onDelete) { Text("删除", color = Red) }
         }
     }
 }

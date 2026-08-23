@@ -59,6 +59,7 @@ object Supabase {
                 .put("analysis", m.analysis).put("image", "")
                 .put("error_count", m.errorCount).put("mastered", m.mastered)
                 .put("parsed_by", m.parsedBy)
+                .put("variant_of", m.variantOf)
                 .put("created_at", iso.format(Date(m.createdAt)))
                 .put("updated_at", iso.format(Date(m.updatedAt)))
             client.newCall(req("mistakes", "POST", j.toString()).build()).execute().use {}
@@ -99,6 +100,7 @@ object Supabase {
                             errorCount = o.optInt("error_count", 1),
                             mastered = o.optBoolean("mastered"),
                             parsedBy = o.optString("parsed_by", "cloud"),
+                            variantOf = o.optString("variant_of"),
                             createdAt = parseIso(o.optString("created_at")),
                             updatedAt = rt
                         ))

@@ -1,6 +1,7 @@
 package com.jiancuoti.app.data
 
 import android.content.Context
+import androidx.compose.runtime.mutableIntStateOf
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -14,6 +15,10 @@ object Store {
 
     var mistakes: MutableList<Mistake> = mutableListOf()
     var papers: MutableList<Paper> = mutableListOf()
+
+    /** 数据版本号：任何数据变更后自增，Compose 界面以此自动刷新 */
+    val revision = mutableIntStateOf(0)
+    private fun bump() { revision.intValue++ }
 
     fun init(ctx: Context) {
         appDir = ctx.filesDir
@@ -97,6 +102,7 @@ object Store {
                 .put("updatedAt", m.updatedAt))
         }
         file("mistakes.json").writeText(arr.toString())
+        bump()
     }
 
     private fun loadPapers() {
@@ -132,6 +138,7 @@ object Store {
                 .put("createdAt", p.createdAt))
         }
         file("papers.json").writeText(arr.toString())
+        bump()
     }
 
     fun imgFile(name: String): File? {

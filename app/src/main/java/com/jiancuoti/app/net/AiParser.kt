@@ -107,17 +107,18 @@ object AiParser {
         val model = Store.settings["apiModel"].takeUnless { it.isNullOrBlank() } ?: "gpt-4o-mini"
 
         val bos = ByteArrayOutputStream()
-        val small = if (bmp.width > 1280)
-            Bitmap.createScaledBitmap(bmp, 1280, bmp.height * 1280 / bmp.width, true) else bmp
-        small.compress(Bitmap.CompressFormat.JPEG, 85, bos)
+        val small = if (bmp.width > 1024)
+            Bitmap.createScaledBitmap(bmp, 1024, bmp.height * 1024 / bmp.width, true) else bmp
+        small.compress(Bitmap.CompressFormat.JPEG, 80, bos)
         val b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
 
         val body = JSONObject().apply {
             put("model", model)
-            put("max_tokens", 1200)
+            put("max_tokens", 900)
+            put("temperature", 0.1)
             put("messages", JSONArray()
                 .put(JSONObject().put("role", "system")
-                    .put("content", "你是错题整理助手（题目均来自人教版教材体系）。观察题目图片，只输出 JSON（不要 markdown），字段顺序即生成优先级：knowledge 最先精确给出——知识点定位格式「学科·必修/选择性必修几·第几章 章名·第几节 节名」并附核心考点（如「数学·必修第一册·第五章 三角函数·5.4 三角函数的图象与性质 · 周期性」），不要出现「人教版」三个字；然后 subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)、question(完整题干，公式用LaTeX写在\$中，手写内容也要仔细辨认)、answer(正确答案)、analysis(分步解析，最后生成，每步一行，公式用LaTeX写在\$中)。"))
+                    .put("content", "你是错题整理助手。看题图，只输出 JSON（无 markdown）。字段：knowledge——定位格式「学科·必修/选修册·第几章 章名·节名·核心考点」，不出现「人教版」；subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)；question(完整题干，公式用 LaTeX 写在 \$ 中，认真辨认手写)；answer(正确答案，简洁)；analysis(分步解析，每步一行，简洁明了，公式用 \$ 包裹)。控制篇幅，不要冗长。"))
                 .put(JSONObject().put("role", "user").put("content", JSONArray()
                     .put(JSONObject().put("type", "text").put("text", "请解析这道题并按要求输出 JSON。"))
                     .put(JSONObject().put("type", "image_url")
@@ -159,12 +160,14 @@ object AiParser {
                 """.trimIndent() else "" }
                 请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
                 只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
-                question(新题干，含完整选项)、answer(完整参考答案，若是真题用官方答案)、analysis(完整分步解析，每步一行，不少于3步)、difficulty(1到3的整数)、source(来源标注)。
+                question(新题干，含完整选项，公式用LaTeX写在${'$'}中)、answer(参考答案，简洁)、analysis(分步解析，每步一行，不超过4步，公式用${'$'}包裹)、difficulty(1到3的整数)、source(来源标注)。
+                控制总篇幅，不要冗长。
             """.trimIndent()
 
             val body = JSONObject().apply {
                 put("model", model)
-                put("max_tokens", 1600)
+                put("max_tokens", 1300)
+                put("temperature", 0.5)
                 put("messages", JSONArray()
                     .put(JSONObject().put("role", "system")
                         .put("content", "你是出题专家，只输出 JSON 数组，不要任何解释。"))

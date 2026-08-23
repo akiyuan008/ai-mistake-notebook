@@ -31,6 +31,7 @@ import com.jiancuoti.app.img.Enhance
 import com.jiancuoti.app.img.Perspective
 import com.jiancuoti.app.net.AiParser
 import com.jiancuoti.app.net.Supabase
+import com.jiancuoti.app.net.VariantQuestion
 import com.jiancuoti.app.ui.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,7 +44,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Store.init(applicationContext)
         enableEdgeToEdge()
-        // 请求支持的最高刷新率（部分设备默认 60Hz）
         try {
             window.attributes = window.attributes.apply {
                 preferredRefreshRate = 120f
@@ -81,6 +81,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** 全屏页面（覆盖 Dock 栏） */
+sealed class FullPage {
+    data class Detail(val m: Mistake) : FullPage()
+    data class Edit(val m: Mistake) : FullPage()
+    data class Variants(val vs: List<VariantQuestion>, val origin: Mistake) : FullPage()
+    data class Chat(val ctx: String, val img: File?) : FullPage()
+    data class Viewer(val images: List<File>, val index: Int, val titles: List<String>) : FullPage()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
@@ -94,6 +103,21 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var cropIndex by remember { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf("") }
 
+    // 全屏页面栈（详情/编辑/变式/对话/看图），渲染在 Scaffold 之上 → 盖住 Dock
+    var pageStack by remember { mutableStateOf(listOf<FullPage>()) }
+    fun push(p: FullPage) { pageStack = pageStack + p }
+    fun pop() { pageStack = pageStack.dropLast(1) }
+
+    val nav = remember {
+        PageNav(
+            openDetail = { push(FullPage.Detail(it)) },
+            openEdit = { push(FullPage.Edit(it)) },
+            openChat = { ctx, img -> push(FullPage.Chat(ctx, img)) },
+            openVariants = { vs, origin -> push(FullPage.Variants(vs, origin)) },
+            openViewer = { imgs, idx, titles -> push(FullPage.Viewer(imgs, idx, titles)) }
+        )
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -104,7 +128,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Modifier.fillMaxSize()
             .background(Brush.verticalGradient(listOf(bgTop, bgBottom)))
     ) {
-        // 装饰光斑（深色下更亮，制造层次）
+        // 装饰光斑
         Box(Modifier.size(300.dp).offset(x = 200.dp, y = (-100).dp)
             .background(
                 Brush.radialGradient(listOf(
@@ -123,78 +147,69 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                Box {
-                    // 悬浮玻璃 Dock：大圆角胶囊、半透明、高光描边
-                    NavigationBar(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 8.dp)
-                            .navigationBarsPadding()
-                            .clip(RoundedCornerShape(30.dp))
+                // Dock：玻璃胶囊、纯图标无文字、贴底、真圆角、无蓝色
+                val dockBg = if (dark) Color(0xFF1A2736).copy(alpha = 0.88f)
+                             else Color.White.copy(alpha = 0.82f)
+                val ink = MaterialTheme.colorScheme.onSurface
+                val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                Box(
+                    Modifier.fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 40.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().height(56.dp)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .background(dockBg)
                             .border(
                                 1.dp,
-                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.16f)
-                                else Color.White.copy(alpha = 0.7f),
-                                RoundedCornerShape(30.dp)
-                            ),
-                        containerColor = if (dark) Color(0xFF16222F).copy(alpha = 0.85f)
-                                         else Color.White.copy(alpha = 0.75f),
-                        tonalElevation = 0.dp
+                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.14f)
+                                else Color.White.copy(alpha = 0.8f),
+                                RoundedCornerShape(percent = 50)
+                            )
+                            .shadow(8.dp, RoundedCornerShape(percent = 50)),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         val items: List<Triple<String, ImageVector, Int>> = listOf(
                             Triple("错题库", Icons.Default.Book, 0),
                             Triple("组卷", Icons.Default.Assignment, 1),
-                            Triple("", Icons.Default.CameraAlt, 2),
+                            Triple("拍摄", Icons.Default.CameraAlt, 2),
                             Triple("统计", Icons.Default.BarChart, 3),
                             Triple("我的", Icons.Default.Person, 4)
                         )
                         items.forEach { (label, icon, idx) ->
-                            if (idx == 2) {
-                                // 中间占位（真正的拍摄按钮画在 Dock 外层，避免被裁剪）
-                                NavigationBarItem(
-                                    selected = false,
-                                    onClick = {},
-                                    enabled = false,
-                                    icon = { Box(Modifier.size(1.dp)) },
-                                    label = { Text("拍摄", fontSize = 10.sp, color = Color.Transparent) }
-                                )
-                            } else {
-                                NavigationBarItem(
-                                    selected = tab == idx,
-                                    onClick = { tab = idx },
-                                    icon = {
+                            Box(
+                                Modifier.weight(1f).fillMaxHeight()
+                                    .clickableNoRipple { tab = idx },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    if (idx == 2) {
+                                        // 中间拍摄：墨色圆底白图标（非蓝色）
+                                        Box(
+                                            Modifier.size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(if (dark) Color(0xFFE8F1F8) else Color(0xFF16324A)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(icon, null,
+                                                tint = if (dark) Color(0xFF16324A) else Color.White,
+                                                modifier = Modifier.size(22.dp))
+                                        }
+                                    } else {
                                         Icon(icon, null,
-                                            modifier = Modifier.size(28.dp),
-                                            tint = if (tab == idx) MaterialTheme.colorScheme.primary
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant)
-                                    },
-                                    label = {
-                                        Text(label, fontSize = 11.sp, maxLines = 1,
-                                            color = if (tab == idx) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant)
+                                            tint = if (tab == idx) ink else dim,
+                                            modifier = Modifier.size(24.dp))
+                                        Box(
+                                            Modifier.padding(top = 3.dp)
+                                                .size(if (tab == idx) 4.dp else 0.dp)
+                                                .clip(CircleShape)
+                                                .background(ink)
+                                        )
                                     }
-                                )
+                                }
                             }
                         }
-                    }
-                    // 拍摄按钮：覆盖层，凸出于 Dock 顶部，完整显示
-                    Box(
-                        Modifier.align(Alignment.TopCenter)
-                            .offset(y = (-12).dp)
-                            .size(60.dp)
-                            .shadow(10.dp, CircleShape, clip = false)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(SkyPrimary, SkyPrimaryDeep)
-                                ),
-                                CircleShape
-                            )
-                            .border(2.5.dp, Color.White.copy(alpha = 0.85f), CircleShape)
-                            .clickableNoRipple { tab = 2 },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.CameraAlt, null, tint = Color.White,
-                            modifier = Modifier.size(28.dp))
                     }
                 }
             }
@@ -203,6 +218,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                 when (tab) {
                     0 -> LibraryScreen(
                         onChanged = bump,
+                        nav = nav,
                         onResumeDrafts = {
                             val drafts = Store.drafts()
                             if (drafts.isNotEmpty()) {
@@ -252,7 +268,6 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         // 裁剪全屏层
         if (cropFiles.isNotEmpty() && cropIndex < cropFiles.size) {
             val displayBmps = remember(cropFiles) {
-                // 大图解码耗时，放 IO 线程避免卡主线程（120Hz 掉帧主因之一）
                 kotlinx.coroutines.runBlocking {
                     withContext(Dispatchers.IO) { cropFiles.map { loadBitmap(it, 1200) } }
                 }
@@ -266,11 +281,8 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     val files = cropFiles
                     cropFiles = emptyList()
                     tab = 0
-                    // 提交提取即视为完成，清理草稿
                     files.forEach { Store.removeDraft(it.name) }
-                    // 用全局后台协程：保存+解析都不受页面/弹窗生命周期影响
                     com.jiancuoti.app.net.BgTasks.scope.launch {
-                        // 预载各页高清图（带旋转）
                         val fullBmps = withContext(Dispatchers.IO) {
                             files.mapIndexed { i, f ->
                                 val b = loadBitmap(f, 2400)
@@ -300,7 +312,6 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                     }
                                     c
                                 }
-                                // 多部分（跨页拼接）→ 等宽合成一张
                                 val finalBmp = if (crops.size > 1) stitchVertical(crops) else crops[0]
                                 val imgName = "m_${Store.uid()}.jpg"
                                 withContext(Dispatchers.IO) {
@@ -308,7 +319,6 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                         finalBmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
                                     }
                                 }
-                                // 立即入库（显示「解析中」），后台慢慢解析
                                 val willParse = Store.settings["autoParse"] != "0" && AiParser.configured
                                 val m = Mistake(
                                     id = Store.uid(),
@@ -344,13 +354,38 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             )
         }
 
+        // 全屏页面栈渲染（最上层，盖住 Dock）
+        pageStack.lastOrNull()?.let { page ->
+            when (page) {
+                is FullPage.Detail -> DetailPage(
+                    page.m, onBack = { pop() }, nav = nav, onChanged = bump
+                )
+                is FullPage.Edit -> EditPage(
+                    page.m, onBack = { pop() },
+                    onSaved = { pop(); bump() }
+                )
+                is FullPage.Variants -> VariantsPage(
+                    page.vs, page.origin, onBack = { pop() },
+                    onSavedVariant = bump
+                )
+                is FullPage.Chat -> ChatPage(
+                    contextText = page.ctx, contextImage = page.img,
+                    onClose = { pop() }
+                )
+                is FullPage.Viewer -> ImageViewer(
+                    images = page.images, initialIndex = page.index,
+                    titles = page.titles, onClose = { pop() }
+                )
+            }
+        }
+
         // Toast
         if (toast.isNotBlank()) {
             LaunchedEffect(toast) { kotlinx.coroutines.delay(2400); toast = "" }
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 Surface(
                     Modifier.padding(top = 70.dp),
-                    shape = RoundedCornerShapeT,
+                    shape = RoundedCornerShape(50),
                     color = if (dark) Color(0xFFE4EEF6) else Color(0xFF0C2B42)
                 ) {
                     Text(toast,
@@ -363,19 +398,16 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     }
 }
 
-private val RoundedCornerShapeT = androidx.compose.foundation.shape.RoundedCornerShape(50)
-
-/** 任意角度旋转位图（自动扩展画布防裁边） */
+/** 任意角度旋转位图 */
 private fun rotateBitmap(src: android.graphics.Bitmap, degrees: Float): android.graphics.Bitmap {
     val m = android.graphics.Matrix().apply { postRotate(degrees) }
     return android.graphics.Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
 }
 
-/** 垂直拼接：各部分先等宽缩放对齐，再上下合成（白色底，小间隙） */
+/** 垂直拼接 */
 private fun stitchVertical(crops: List<android.graphics.Bitmap>): android.graphics.Bitmap {
     val w = crops.maxOf { it.width }
     val gap = 14
-    // 等宽对齐
     val aligned = crops.map { c ->
         if (c.width == w) c
         else android.graphics.Bitmap.createScaledBitmap(

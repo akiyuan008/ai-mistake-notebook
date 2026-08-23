@@ -25,7 +25,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.jiancuoti.app.net.AiParser
 import com.jiancuoti.app.net.BgTasks
@@ -34,9 +33,9 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-/** AI 对话：针对某道错题问答（文本 + 图片），后台运行不随弹窗关闭中断 */
+/** AI 对话（全屏页面）：针对某道错题问答（文本 + 图片），后台运行不随页面关闭中断 */
 @Composable
-fun ChatDialog(
+fun ChatPage(
     contextText: String,          // 题目上下文
     contextImage: File?,          // 题目原图
     onClose: () -> Unit
@@ -105,22 +104,20 @@ fun ChatDialog(
         }
     }
 
-    Dialog(onDismissRequest = onClose) {
-        Surface(
-            Modifier.fillMaxWidth().fillMaxHeight(0.9f),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                // 顶栏
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("AI 对话", fontSize = 16.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onClose) { Text("关闭") }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxSize()) {
+            // 顶栏
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, "返回")
                 }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Text("AI 对话", fontSize = 16.sp, modifier = Modifier.weight(1f))
+            }
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                 // 消息列表
                 LazyColumn(
@@ -245,7 +242,6 @@ fun ChatDialog(
                 }
             }
         }
-    }
 }
 
 private fun fileToB64(f: File, maxSide: Int): String? = try {

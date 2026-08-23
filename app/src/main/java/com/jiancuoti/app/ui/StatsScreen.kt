@@ -20,7 +20,8 @@ import java.util.Calendar
 @Composable
 fun StatsScreen() {
     var range by remember { mutableStateOf("最近 7 天") }
-    val ms = Store.mistakes
+    val rev = Store.revision.intValue
+    val ms = remember(rev) { Store.mistakes.toList() }
 
     val start = when (range) {
         "今天" -> Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
