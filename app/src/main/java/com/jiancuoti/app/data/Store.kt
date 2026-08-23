@@ -73,7 +73,7 @@ object Store {
                     errorCount = o.optInt("errorCount", 1),
                     mastered = o.optBoolean("mastered"),
                     parsedBy = o.optString("parsedBy", "manual"),
-                    parsing = false,
+                    parsing = o.optBoolean("parsing", false),
                     variantOf = o.optString("variantOf"),
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                     updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
@@ -97,6 +97,7 @@ object Store {
                 .put("errorCount", m.errorCount)
                 .put("mastered", m.mastered)
                 .put("parsedBy", m.parsedBy)
+                .put("parsing", m.parsing)
                 .put("variantOf", m.variantOf)
                 .put("createdAt", m.createdAt)
                 .put("updatedAt", m.updatedAt))
@@ -160,7 +161,8 @@ object Store {
                 .put("id", m.id).put("subject", m.subject).put("knowledge", m.knowledge)
                 .put("question", m.question).put("answer", m.answer).put("analysis", m.analysis)
                 .put("errorCount", m.errorCount).put("mastered", m.mastered)
-                .put("parsedBy", m.parsedBy).put("createdAt", m.createdAt).put("updatedAt", m.updatedAt)
+                .put("parsedBy", m.parsedBy)
+                .put("parsing", m.parsing).put("createdAt", m.createdAt).put("updatedAt", m.updatedAt)
             // 图片以 base64 带出
             imgFile(m.imageFile)?.let { f ->
                 o.put("imageBase64", android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP))

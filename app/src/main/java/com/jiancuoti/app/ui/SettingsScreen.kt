@@ -44,6 +44,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var syncStatus by remember { mutableStateOf(if (Supabase.configured) "已配置" else "未配置") }
     var enhance by remember { mutableStateOf(Store.settings["enhance"] != "0") }
     var autoParse by remember { mutableStateOf(Store.settings["autoParse"] != "0") }
+    var autoKnowledge by remember { mutableStateOf(Store.settings["autoKnowledge"] != "0") }
 
     // 模型选择列表
     var modelPicker by remember { mutableStateOf(false) }
@@ -213,7 +214,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("裁剪后 AI 自动解析", fontSize = 13.5.sp)
-                    Text("裁剪完成后 AI 自动识别科目/知识点并预填，弹窗中可再编辑；关闭则只存图片", fontSize = 11.5.sp,
+                    Text("裁剪完成后 AI 自动识别题干/答案/解析；关闭则只存图片", fontSize = 11.5.sp,
                         lineHeight = 16.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -222,6 +223,69 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     Store.settings["autoParse"] = if (it) "1" else "0"
                     Store.saveSettings()
                 })
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("自动生成知识点分类", fontSize = 13.5.sp)
+                    Text("独立开关：关闭解析后仍可单独识别知识点分类", fontSize = 11.5.sp,
+                        lineHeight = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = autoKnowledge, onCheckedChange = {
+                    autoKnowledge = it
+                    Store.settings["autoKnowledge"] = if (it) "1" else "0"
+                    Store.saveSettings()
+                })
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+
+        // 解析队列
+        val queueActive = com.jiancuoti.app.net.BgTasks.activeCount
+        val queueList = com.jiancuoti.app.net.BgTasks.parseQueue.toList()
+        SettingsCard("解析队列") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (queueActive > 0) "正在解析 $queueActive 题（排队执行，返回不中断）"
+                    else "当前无解析任务",
+                    fontSize = 13.sp,
+                    color = if (queueActive > 0) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                if (queueActive > 0) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                }
+            }
+            if (queueList.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                queueList.forEach { task ->
+                    val mm = Store.mistakes.firstOrNull { it.id == task.mistakeId }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                    ) {
+                        Text(
+                            when (task.status) {
+                                "doing" -> "⏳ 解析中"
+                                "done" -> "✅ 完成"
+                                "fail" -> "❌ 失败"
+                                else -> "🕐 排队中"
+                            },
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            (mm?.knowledge?.ifBlank { mm.subject } ?: "题目").take(16) +
+                                if (task.mode == "knowledge") "（仅知识点）" else "",
+                            fontSize = 12.sp,
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
         Spacer(Modifier.height(14.dp))

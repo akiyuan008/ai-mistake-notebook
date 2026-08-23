@@ -497,33 +497,19 @@ fun DetailPage(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = {
-                                if (aiBusy) return@OutlinedButton
                                 val f = Store.imgFile(m.imageFile)
                                 if (f == null) { aiMsg = "该题没有图片，无法重新解析"; return@OutlinedButton }
                                 if (!com.jiancuoti.app.net.AiParser.configured) {
                                     aiMsg = "请先在「我的」页配置 AI 解析接口"; return@OutlinedButton
                                 }
-                                aiBusy = true; aiMsg = "AI 解析中…（返回不中断）"
-                                com.jiancuoti.app.net.BgTasks.scope.launch {
-                                    try {
-                                        val bmp = withContext(kotlinx.coroutines.Dispatchers.IO) { loadBitmap(f, 1600) }
-                                        val r = com.jiancuoti.app.net.AiParser.parse(bmp)
-                                        m.subject = r.subject; m.knowledge = r.knowledge
-                                        m.question = r.question; m.answer = r.answer
-                                        m.analysis = r.analysis; m.parsedBy = "api"
-                                        m.parsing = false
-                                        m.updatedAt = System.currentTimeMillis()
-                                        Store.saveMistakes()
-                                        withContext(kotlinx.coroutines.Dispatchers.IO) { Supabase.pushMistake(m) }
-                                        aiBusy = false; aiMsg = ""
-                                        onChanged()
-                                    } catch (e: Exception) {
-                                        aiBusy = false
-                                        aiMsg = "解析失败：${e.message?.take(90)}"
-                                    }
-                                }
+                                // 进入全局解析队列（排队执行，返回不中断）
+                                m.parsing = true
+                                m.updatedAt = System.currentTimeMillis()
+                                Store.saveMistakes()
+                                com.jiancuoti.app.net.BgTasks.enqueueParse(m.id, "full")
+                                aiMsg = "已加入解析队列，可在「我的」页查看进度"
+                                onChanged()
                             },
-                            enabled = !aiBusy,
                             modifier = Modifier.weight(1f)
                         ) { Text("重新解析", fontSize = 12.5.sp) }
                         Button(
@@ -573,6 +559,18 @@ fun DetailPage(
                     },
                     modifier = Modifier.weight(1f)
                 ) { Text("又错了") }
+                OutlinedButton(
+                    onClick = {
+                        nav.openChat(buildString {
+                            append("【科目】${m.subject}\n")
+                            if (m.knowledge.isNotBlank()) append("【知识点】${m.knowledge}\n")
+                            if (m.question.isNotBlank()) append("【题干】${m.question}\n")
+                            if (m.answer.isNotBlank()) append("【答案】${m.answer}\n")
+                            if (m.analysis.isNotBlank()) append("【解析】${m.analysis.take(400)}")
+                        }, Store.imgFile(m.imageFile))
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("问 AI") }
                 Button(
                     onClick = { nav.openEdit(m) },
                     modifier = Modifier.weight(1f)

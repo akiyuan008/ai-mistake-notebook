@@ -17,19 +17,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * 公式渲染：
- * - MathText 组合函数：$...$ 内的 \frac 渲染为真正的竖式分数（上下排版 + 分数线），
- *   与印刷卷面一致；\sqrt、上下标、希腊字母等按符号映射输出
- * - renderMixedText：纯文本版本（供 PDF 绘制等场景）
- * - stripMarkdown：清理 AI 回复中的 markdown 记号
+ * 公式渲染（印刷级排版目标）：
+ * - \frac 竖式分数：占位高度充足（2.9em），分子/分数线/分母完整显示
+ * - 上下标：真实上移/下移小字（BaselineShift），非 Unicode 替换
+ * - 变量斜体、函数名正体，符合数学排版规范
+ * - \mathbb{Z} → ℤ 等黑板粗体映射
  */
 
 private val SYMBOLS = mapOf(
@@ -60,29 +63,26 @@ private val SYMBOLS = mapOf(
     "\\overset" to "", "\\underset" to "", "\\operatorname" to ""
 )
 
+/** 黑板粗体字母 → Unicode 双线字母 */
+private val MATHBB = mapOf(
+    "N" to "ℕ", "Z" to "ℤ", "Q" to "ℚ", "R" to "ℝ", "C" to "ℂ",
+    "H" to "ℍ", "P" to "ℙ", "E" to "𝔼"
+)
+
+/** 上标字符（无法映射时退回真实上移排版） */
 private val SUPERS = mapOf(
     '0' to '⁰', '1' to '¹', '2' to '²', '3' to '³', '4' to '⁴',
     '5' to '⁵', '6' to '⁶', '7' to '⁷', '8' to '⁸', '9' to '⁹',
-    '+' to '⁺', '-' to '⁻', '=' to '⁼', '(' to '⁽', ')' to '⁾',
-    'n' to 'ⁿ', 'i' to 'ⁱ', 'a' to 'ᵃ', 'b' to 'ᵇ', 'c' to 'ᶜ', 'd' to 'ᵈ',
-    'e' to 'ᵉ', 'f' to 'ᶠ', 'g' to 'ᵍ', 'h' to 'ʰ', 'j' to 'ʲ', 'k' to 'ᵏ',
-    'l' to 'ˡ', 'm' to 'ᵐ', 'o' to 'ᵒ', 'p' to 'ᵖ', 'r' to 'ʳ', 's' to 'ˢ',
-    't' to 'ᵗ', 'u' to 'ᵘ', 'v' to 'ᵛ', 'w' to 'ʷ', 'x' to 'ˣ', 'y' to 'ʸ', 'z' to 'ᶻ'
+    '+' to '⁺', '-' to '⁻', '=' to '⁼', '(' to '⁽', ')' to '⁾', 'n' to 'ⁿ'
 )
 private val SUBS = mapOf(
     '0' to '₀', '1' to '₁', '2' to '₂', '3' to '₃', '4' to '₄',
     '5' to '₅', '6' to '₆', '7' to '₇', '8' to '₈', '9' to '₉',
-    '+' to '₊', '-' to '₋', '=' to '₌', '(' to '₍', ')' to '₎',
-    'a' to 'ₐ', 'e' to 'ₑ', 'h' to 'ₕ', 'i' to 'ᵢ', 'j' to 'ⱼ', 'k' to 'ₖ',
-    'l' to 'ₗ', 'm' to 'ₘ', 'n' to 'ₙ', 'o' to 'ₒ', 'p' to 'ₚ', 'r' to 'ᵣ',
-    's' to 'ₛ', 't' to 'ₜ', 'u' to 'ᵤ', 'v' to 'ᵥ', 'x' to 'ₓ'
+    '+' to '₊', '-' to '₋', '=' to '₌', '(' to '₍', ')' to '₎'
 )
-
-/* ---------------- LaTeX 分词读取工具 ---------------- */
 
 private class Reader(val s: String) {
     var i = 0
-    /** 读取一个参数：{...} 整体或单个 token */
     fun readArg(): String {
         if (i >= s.length) return ""
         if (s[i] == '{') {
@@ -94,21 +94,19 @@ private class Reader(val s: String) {
                 i++
             }
             val content = s.substring(start, i.coerceAtMost(s.length))
-            i++ // 跳过 }
+            i++
             return content
         }
         if (s[i] == '\\') {
-            // 反斜杠命令作为整体
             var j = i + 1
             while (j < s.length && s[j].isLetter()) j++
-            if (j == i + 1 && j < s.length) j++ // \<符号>
+            if (j == i + 1 && j < s.length) j++
             val t = s.substring(i, j.coerceAtMost(s.length))
             i = j
             return t
         }
         return s[i++].toString()
     }
-    /** 读取命令名（调用时 s[i] == '\\'） */
     fun readCmd(): String {
         var j = i + 1
         while (j < s.length && s[j].isLetter()) j++
@@ -121,7 +119,6 @@ private class Reader(val s: String) {
 
 /* ---------------- 纯文本渲染（PDF 等） ---------------- */
 
-/** 把一小段 LaTeX（无 $ 包裹）转成可读 Unicode 文本 */
 fun renderLatex(src: String): String {
     val r = Reader(src.trim())
     val sb = StringBuilder()
@@ -137,112 +134,6 @@ fun renderLatex(src: String): String {
                         if (num.length <= 2 && den.length <= 2) sb.append("$num⁄$den")
                         else sb.append("($num)/($den)")
                     }
-                    "\\sqrt" -> sb.append("√(").append(renderLatex(r.readArg())).append(")")
-                    "\\text", "\\mathrm", "\\mathbf", "\\mathit", "\\operatorname" ->
-                        sb.append(renderLatex(r.readArg()))
-                    "\\overline" -> sb.append(renderLatex(r.readArg())).append('̅')
-                    "\\vec" -> sb.append(renderLatex(r.readArg())).append("⃗")
-                    "\\hat" -> sb.append(renderLatex(r.readArg())).append('^')
-                    else -> sb.append(SYMBOLS[name] ?: name.removePrefix("\\"))
-                }
-            }
-            c == '^' -> {
-                r.i++
-                val inner = r.readArg()
-                sb.append(inner.map { SUPERS[it] ?: it }.joinToString(""))
-            }
-            c == '_' -> {
-                r.i++
-                val inner = r.readArg()
-                sb.append(inner.map { SUBS[it] ?: it }.joinToString(""))
-            }
-            c == '{' || c == '}' -> r.i++
-            else -> { sb.append(c); r.i++ }
-        }
-    }
-    return sb.toString()
-}
-
-/** 混排文本：把整段中的 $$...$$ / $...$ / \(...\) / \[...\] 渲染掉（纯文本版） */
-fun renderMixedText(text: String): String {
-    if (text.isBlank()) return text
-    var out = text
-    out = Regex("\\\\\\[(.+?)\\\\\\]", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
-    out = Regex("\\\\\\((.+?)\\\\\\)", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
-    out = Regex("\\$\\$(.+?)\\$\\$", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
-    out = Regex("\\$([^$]+?)\\$").replace(out) { renderLatex(it.groupValues[1]) }
-    out = out.replace(Regex("\\\\([a-zA-Z]+)")) { m ->
-        SYMBOLS["\\" + m.groupValues[1]] ?: m.groupValues[1]
-    }
-    return out
-}
-
-/** 清理 AI 回复的 markdown 记号，保留公式 */
-fun stripMarkdown(text: String): String {
-    var out = text
-    out = out.replace("```latex", "").replace("```math", "").replace("```", "")
-    out = out.replace(Regex("\\*\\*(.+?)\\*\\*"), "$1")
-    out = out.replace(Regex("__(.+?)__"), "$1")
-    out = out.replace(Regex("(^|\\s)\\*([^*]+?)\\*(\\s|$)"), "$1$2$3")
-    out = out.replace(Regex("^#{1,4}\\s*", RegexOption.MULTILINE), "")
-    return out
-}
-
-/* ---------------- 富文本渲染（竖式分数） ---------------- */
-
-private const val FRAC_ID = "frac"
-
-/** 构建带竖式分数的 AnnotatedString。latex 为无 $ 包裹的公式段 */
-private fun buildLatexAnnotated(
-    latex: String,
-    sb: AnnotatedString.Builder,
-    inline: MutableMap<String, InlineTextContent>,
-    fontSize: TextUnit,
-    color: Color,
-    idCounter: IntArray
-) {
-    val r = Reader(latex)
-    while (r.i < r.s.length) {
-        val c = r.s[r.i]
-        when {
-            c == '\\' -> {
-                val name = r.readCmd()
-                when (name) {
-                    "\\frac", "\\dfrac", "\\tfrac" -> {
-                        val numRaw = r.readArg()
-                        val denRaw = r.readArg()
-                        val num = renderLatex(numRaw)
-                        val den = renderLatex(denRaw)
-                        val id = "$FRAC_ID${idCounter[0]++}"
-                        val widest = maxOf(num.length, den.length)
-                        val charW = fontSize.value * 0.58f
-                        val w = (widest * charW + 4f).coerceAtLeast(fontSize.value * 1.1f)
-                        sb.appendInlineContent(id, "​")
-                        inline[id] = InlineTextContent(
-                            Placeholder(
-                                width = w.sp,
-                                height = (fontSize.value * 2.15f).sp,
-                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                            )
-                        ) {
-                            Column(
-                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 1.dp)
-                            ) {
-                                Text(num, fontSize = (fontSize.value * 0.78f).sp, color = color,
-                                    maxLines = 1, textAlign = TextAlign.Center,
-                                    fontFamily = FontFamily.Default)
-                                Box(
-                                    Modifier.fillMaxWidth()
-                                        .height((fontSize.value * 0.09f).coerceAtLeast(1f).dp)
-                                        .background(color.copy(alpha = 0.85f))
-                                )
-                                Text(den, fontSize = (fontSize.value * 0.78f).sp, color = color,
-                                    maxLines = 1, textAlign = TextAlign.Center,
-                                    fontFamily = FontFamily.Default)
-                            }
-                        }
-                    }
                     "\\sqrt" -> {
                         sb.append("√(")
                         sb.append(renderLatex(r.readArg()))
@@ -250,6 +141,11 @@ private fun buildLatexAnnotated(
                     }
                     "\\text", "\\mathrm", "\\mathbf", "\\mathit", "\\operatorname" ->
                         sb.append(renderLatex(r.readArg()))
+                    "\\mathbb" -> {
+                        val inner = renderLatex(r.readArg()).trim()
+                        sb.append(inner.map { MATHBB[it.toString()] ?: it.toString() }.joinToString(""))
+                    }
+                    "\\mathcal" -> sb.append(renderLatex(r.readArg()))
                     "\\overline" -> {
                         sb.append(renderLatex(r.readArg()))
                         sb.append('̅')
@@ -279,9 +175,175 @@ private fun buildLatexAnnotated(
             else -> { sb.append(c); r.i++ }
         }
     }
+    return sb.toString()
 }
 
-/** 混排富文本：普通文字原样，公式段渲染（含竖式分数） */
+fun renderMixedText(text: String): String {
+    if (text.isBlank()) return text
+    var out = text
+    out = Regex("\\\\\\[(.+?)\\\\\\]", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
+    out = Regex("\\\\\\((.+?)\\\\\\)", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
+    out = Regex("\\$\\$(.+?)\\$\\$", RegexOption.DOT_MATCHES_ALL).replace(out) { renderLatex(it.groupValues[1]) }
+    out = Regex("\\$([^$]+?)\\$").replace(out) { renderLatex(it.groupValues[1]) }
+    out = out.replace(Regex("\\\\([a-zA-Z]+)")) { m ->
+        SYMBOLS["\\" + m.groupValues[1]] ?: MATHBB[m.groupValues[1]] ?: m.groupValues[1]
+    }
+    return out
+}
+
+fun stripMarkdown(text: String): String {
+    var out = text
+    out = out.replace("```latex", "").replace("```math", "").replace("```", "")
+    out = out.replace(Regex("\\*\\*(.+?)\\*\\*"), "$1")
+    out = out.replace(Regex("__(.+?)__"), "$1")
+    out = out.replace(Regex("(^|\\s)\\*([^*]+?)\\*(\\s|$)"), "$1$2$3")
+    out = out.replace(Regex("^#{1,4}\\s*", RegexOption.MULTILINE), "")
+    return out
+}
+
+/* ---------------- 富文本渲染（竖式分数 + 真实上下标 + 斜体变量） ---------------- */
+
+private const val INLINE_ID = "inline"
+
+/** 公式内变量斜体输出 */
+private fun AnnotatedString.Builder.appendMathChars(chars: String) {
+    for (c in chars) {
+        if (c.isLetter() && c.code < 128) {
+            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(c) }
+        } else {
+            append(c)
+        }
+    }
+}
+
+private fun buildLatexAnnotated(
+    latex: String,
+    sb: AnnotatedString.Builder,
+    inline: MutableMap<String, InlineTextContent>,
+    fontSize: TextUnit,
+    color: Color,
+    idCounter: IntArray
+) {
+    val r = Reader(latex)
+    while (r.i < r.s.length) {
+        val c = r.s[r.i]
+        when {
+            c == '\\' -> {
+                val name = r.readCmd()
+                when (name) {
+                    "\\frac", "\\dfrac", "\\tfrac" -> {
+                        val numRaw = r.readArg()
+                        val denRaw = r.readArg()
+                        val num = renderLatex(numRaw)
+                        val den = renderLatex(denRaw)
+                        val id = "$INLINE_ID${idCounter[0]++}"
+                        val widest = maxOf(num.length, den.length)
+                        // 宽度：按字符估算 + 左右余量
+                        val w = widest * fontSize.value * 0.62f + fontSize.value * 0.9f
+                        // 高度：给足 2.9em，确保分母不被裁剪
+                        val h = fontSize.value * 2.9f
+                        sb.appendInlineContent(id, "□")
+                        val subSize = (fontSize.value * 0.74f).sp
+                        val lineH = (fontSize.value * 1.02f).sp
+                        inline[id] = InlineTextContent(
+                            Placeholder(
+                                width = w.sp,
+                                height = h.sp,
+                                placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                            )
+                        ) {
+                            Column(
+                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(horizontal = 2.dp)
+                            ) {
+                                Text(num, fontSize = subSize, lineHeight = lineH, color = color,
+                                    maxLines = 1, textAlign = TextAlign.Center)
+                                Box(
+                                    Modifier.fillMaxWidth()
+                                        .height((fontSize.value * 0.09f).coerceAtLeast(1.1f).dp)
+                                        .background(color.copy(alpha = 0.9f))
+                                )
+                                Text(den, fontSize = subSize, lineHeight = lineH, color = color,
+                                    maxLines = 1, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                    "\\sqrt" -> {
+                        sb.append("√")
+                        val inner = r.readArg()
+                        // 根号内容顶部加横线（上划线近似）
+                        buildLatexAnnotated(inner, sb, inline, fontSize, color, idCounter)
+                    }
+                    "\\text", "\\mathrm", "\\operatorname" -> {
+                        sb.append(renderLatex(r.readArg()))
+                    }
+                    "\\mathbf" -> {
+                        val inner = renderLatex(r.readArg())
+                        sb.append(inner)
+                    }
+                    "\\mathbb" -> {
+                        val inner = renderLatex(r.readArg()).trim()
+                        sb.append(inner.map { MATHBB[it.toString()] ?: it.toString() }.joinToString(""))
+                    }
+                    "\\mathcal", "\\mathit" -> {
+                        sb.append(renderLatex(r.readArg()))
+                    }
+                    "\\overline" -> {
+                        sb.append(renderLatex(r.readArg()))
+                        sb.append('̅')
+                    }
+                    "\\vec" -> {
+                        sb.append(renderLatex(r.readArg()))
+                        sb.append("⃗")
+                    }
+                    "\\hat" -> {
+                        sb.append(renderLatex(r.readArg()))
+                        sb.append('^')
+                    }
+                    else -> {
+                        val rep = SYMBOLS[name] ?: name.removePrefix("\\")
+                        sb.appendMathChars(rep)
+                    }
+                }
+            }
+            c == '^' -> {
+                r.i++
+                val inner = r.readArg()
+                if (inner.length <= 3 && inner.all { SUPERS.containsKey(it) }) {
+                    sb.append(inner.map { SUPERS[it] }.joinToString(""))
+                } else {
+                    // 真实上标：小字 + 上移
+                    sb.withStyle(
+                        SpanStyle(
+                            fontSize = (fontSize.value * 0.68f).sp,
+                            baselineShift = androidx.compose.ui.text.style.BaselineShift.Superscript
+                        )
+                    ) { append(renderLatex(inner)) }
+                }
+            }
+            c == '_' -> {
+                r.i++
+                val inner = r.readArg()
+                if (inner.length <= 3 && inner.all { SUBS.containsKey(it) }) {
+                    sb.append(inner.map { SUBS[it] }.joinToString(""))
+                } else {
+                    sb.withStyle(
+                        SpanStyle(
+                            fontSize = (fontSize.value * 0.68f).sp,
+                            baselineShift = androidx.compose.ui.text.style.BaselineShift.Subscript
+                        )
+                    ) { append(renderLatex(inner)) }
+                }
+            }
+            c == '{' || c == '}' -> r.i++
+            else -> {
+                sb.appendMathChars(c.toString())
+                r.i++
+            }
+        }
+    }
+}
+
 private fun buildMixedAnnotated(
     text: String,
     fontSize: TextUnit,
@@ -291,17 +353,12 @@ private fun buildMixedAnnotated(
     val inline = mutableMapOf<String, InlineTextContent>()
     val idCounter = intArrayOf(0)
 
-    // 找出所有公式区间，按优先级：$$ $$、\[\]、\(\)、$ $
-    data class Span(val start: Int, val end: Int, val content: Int) // content: 公式内容起止
+    data class Span(val start: Int, val end: Int)
     val spans = mutableListOf<Span>()
     fun collect(pattern: Regex) {
         pattern.findAll(text).forEach { m ->
             val s = m.range.first; val e = m.range.last + 1
-            if (spans.none { s < it.end && e > it.start }) {
-                spans.add(Span(s, e, m.groups[1]!!.range.first).let {
-                    Span(s, e, 0)
-                })
-            }
+            if (spans.none { s < it.end && e > it.start }) spans.add(Span(s, e))
         }
     }
     collect(Regex("\\$\\$(.+?)\\$\\$", RegexOption.DOT_MATCHES_ALL))
@@ -320,15 +377,14 @@ private fun buildMixedAnnotated(
     }
     if (pos < text.length) {
         val tail = text.substring(pos)
-        // 尾巴里残留的裸命令做符号映射
         sb.append(tail.replace(Regex("\\\\([a-zA-Z]+)")) { m ->
-            SYMBOLS["\\" + m.groupValues[1]] ?: m.groupValues[1]
+            SYMBOLS["\\" + m.groupValues[1]] ?: MATHBB[m.groupValues[1]] ?: m.groupValues[1]
         })
     }
     return sb.toAnnotatedString() to inline
 }
 
-/** 带公式渲染的文本组件：分数竖式排版，其余符号映射 */
+/** 带公式渲染的文本组件：竖式分数、真实上下标、变量斜体 */
 @Composable
 fun MathText(
     text: String,

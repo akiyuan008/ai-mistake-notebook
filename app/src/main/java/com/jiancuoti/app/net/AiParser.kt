@@ -140,6 +140,43 @@ object AiParser {
         )
     }
 
+    /** 仅识别学科+知识点（轻量调用，用于「自动知识点分类」独立开关） */
+    suspend fun knowledgeOnly(bmp: Bitmap): Pair<String, String> = withContext(Dispatchers.IO) {
+        if (!configured) return@withContext Pair("", "")
+        val url = Store.settings["apiUrl"]!!
+        val key = Store.settings["apiKey"]!!
+        val model = Store.settings["apiModel"].takeUnless { it.isNullOrBlank() } ?: "gpt-4o-mini"
+
+        val bos = ByteArrayOutputStream()
+        val small = if (bmp.width > 760)
+            Bitmap.createScaledBitmap(bmp, 760, bmp.height * 760 / bmp.width, true) else bmp
+        small.compress(Bitmap.CompressFormat.JPEG, 75, bos)
+        val b64 = Base64.encodeToString(bos.toByteArray(), Base64.NO_WRAP)
+
+        val body = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 150)
+            put("temperature", 0.1)
+            put("messages", JSONArray()
+                .put(JSONObject().put("role", "system")
+                    .put("content", "看题图，只输出 JSON：{\"subject\":\"学科\",\"knowledge\":\"知识点\"}。subject 限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他。knowledge 格式「必修/选修册·第几章 章名·节名·核心考点」，简短精确，不要出现「人教版」。"))
+                .put(JSONObject().put("role", "user").put("content", JSONArray()
+                    .put(JSONObject().put("type", "text").put("text", "识别这道题的学科和知识点。"))
+                    .put(JSONObject().put("type", "image_url")
+                        .put("image_url", JSONObject().put("url", "data:image/jpeg;base64,$b64"))))))
+        }.toString()
+
+        val data = postChat(url, key, body)
+        val text = data.extractContent()
+        val m = Regex("\\{[\\s\\S]*\\}").find(text) ?: return@withContext Pair("", "")
+        val j = JSONObject(m.value)
+        val subj = j.optString("subject")
+        Pair(
+            if (com.jiancuoti.app.data.SUBJECTS.contains(subj)) subj else "",
+            j.optString("knowledge")
+        )
+    }
+
     /** 举一反三：基于原题生成 2-3 道同考点变式题（含答案与提示） */
     suspend fun variants(subject: String, knowledge: String, question: String, answer: String, preferReal: Boolean = false): List<VariantQuestion> =
         withContext(Dispatchers.IO) {

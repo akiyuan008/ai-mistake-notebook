@@ -118,4 +118,59 @@ object Supabase {
 
     private fun parseIso(s: String): Long =
         try { iso.parse(s)?.time ?: System.currentTimeMillis() } catch (e: Exception) { System.currentTimeMillis() }
+
+    /* ---------------- 试卷同步（组卷记录） ---------------- */
+
+    suspend fun pushPaper(p: com.jiancuoti.app.data.Paper) = withContext(Dispatchers.IO) {
+        if (!configured) return@withContext
+        try {
+            val j = JSONObject()
+                .put("id", p.id).put("type", "compose").put("name", p.name)
+                .put("subjects", p.subjects).put("count", p.count)
+                .put("questions", org.json.JSONArray(p.questions))
+                .put("created_at", iso.format(Date(p.createdAt)))
+            client.newCall(req("papers", "POST", j.toString()).build()).execute().use {}
+        } catch (_: Exception) {}
+    }
+
+    suspend fun deletePaper(id: String) = withContext(Dispatchers.IO) {
+        if (!configured) return@withContext
+        try {
+            client.newCall(req("papers?id=eq.$id", "DELETE").build()).execute().use {}
+        } catch (_: Exception) {}
+    }
+
+    suspend fun pullPapers(): Int = withContext(Dispatchers.IO) {
+        if (!configured) return@withContext 0
+        try {
+            val resp = client.newCall(
+                req("papers?select=*", "GET").header("Prefer", "return=representation").build()
+            ).execute()
+            if (!resp.isSuccessful) return@withContext 0
+            val arr = org.json.JSONArray(resp.body!!.string())
+            var merged = 0
+            val local = Store.papers.associateBy { it.id }
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val id = o.optString("id")
+                if (local.containsKey(id)) continue
+                val qs = mutableListOf<String>()
+                val qa = o.optJSONArray("questions") ?: org.json.JSONArray()
+                for (k in 0 until qa.length()) qs.add(qa.getString(k))
+                Store.papers.add(com.jiancuoti.app.data.Paper(
+                    id = id, name = o.optString("name"),
+                    subjects = o.optString("subjects"),
+                    count = o.optInt("count"),
+                    questions = qs,
+                    createdAt = parseIso(o.optString("created_at"))
+                ))
+                merged++
+            }
+            if (merged > 0) {
+                Store.papers.sortByDescending { it.createdAt }
+                Store.savePapers()
+            }
+            merged
+        } catch (e: Exception) { 0 }
+    }
 }

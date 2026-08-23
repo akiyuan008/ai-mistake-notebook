@@ -77,8 +77,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (Supabase.configured) {
-            lifecycleScope.launch { Supabase.pull() }
+            lifecycleScope.launch {
+                Supabase.pull()
+                Supabase.pullPapers()
+            }
         }
+        // 上次未完成的解析任务重新入队 + 启动云同步轮询
+        com.jiancuoti.app.net.BgTasks.resumePending()
+        com.jiancuoti.app.net.BgTasks.startSyncLoop()
     }
 }
 
@@ -198,16 +204,16 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val items: List<Triple<String, ImageVector, Int>> = listOf(
-                                    Triple("错题库", Icons.Default.Book, 0),
-                                    Triple("组卷", Icons.Default.Assignment, 1),
-                                    Triple("拍摄", Icons.Default.CameraAlt, 2),
-                                    Triple("统计", Icons.Default.BarChart, 3),
-                                    Triple("我的", Icons.Default.Person, 4)
+                                val items: List<Pair<String, Int>> = listOf(
+                                    "错题库" to 0,
+                                    "组卷" to 1,
+                                    "拍摄" to 2,
+                                    "统计" to 3,
+                                    "我的" to 4
                                 )
                                 val ink = MaterialTheme.colorScheme.onSurface
                                 val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                items.forEach { (_, icon, idx) ->
+                                items.forEach { (_, idx) ->
                                     Box(
                                         Modifier.weight(1f).fillMaxHeight()
                                             .clickableNoRipple { tab = idx },
@@ -230,14 +236,12 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                                     ),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(icon, null,
-                                                    tint = Color(0xFF16324A),
-                                                    modifier = Modifier.size(22.dp))
+                                                DockIcon(2, Color(0xFF16324A),
+                                                    modifier = Modifier.size(23.dp))
                                             }
                                         } else {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Icon(icon, null,
-                                                    tint = if (tab == idx) ink else dim,
+                                                DockIcon(idx, if (tab == idx) ink else dim,
                                                     modifier = Modifier.size(24.dp))
                                                 Box(
                                                     Modifier.padding(top = 3.dp)
@@ -361,43 +365,32 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                     }
                                 }
                                 val willParse = Store.settings["autoParse"] != "0" && AiParser.configured
+                                val willKnowledge = Store.settings["autoKnowledge"] != "0" && AiParser.configured
                                 val m = Mistake(
                                     id = Store.uid(),
                                     imageFile = imgName,
                                     parsedBy = "manual",
-                                    parsing = willParse
+                                    parsing = willParse || willKnowledge
                                 )
                                 Store.mistakes.add(0, m)
                                 Store.saveMistakes()
                                 savedList.add(m)
                                 bump()
-                                // 云同步不阻塞解析队列（后台异步推送）
+                                // 云同步异步推送（只同步文字）
                                 launch { Supabase.pushMistake(m) }
-                                if (willParse) {
-                                    try {
-                                        toast = "已入库，AI 解析中 ${idx + 1}/$total"
-                                        val r = AiParser.parse(finalBmp)
-                                        m.subject = r.subject; m.knowledge = r.knowledge
-                                        m.question = r.question; m.answer = r.answer
-                                        m.analysis = r.analysis; m.parsedBy = r.by
+                                // 解析进入全局队列（串行排队，返回不中断）
+                                when {
+                                    willParse -> {
+                                        com.jiancuoti.app.net.BgTasks.enqueueParse(m.id, "full")
                                         parsed++
-                                        com.jiancuoti.app.net.BgTasks.toast(
-                                            "第 ${idx + 1}/${total} 题解析完成"
-                                        )
-                                    } catch (_: Exception) {
-                                        com.jiancuoti.app.net.BgTasks.toast(
-                                            "第 ${idx + 1}/${total} 题解析失败，可在详情页重新解析"
-                                        )
                                     }
-                                    m.parsing = false
-                                    Store.saveMistakes()
-                                    launch { Supabase.pushMistake(m) }
-                                    bump()
+                                    willKnowledge -> com.jiancuoti.app.net.BgTasks.enqueueParse(m.id, "knowledge")
                                 }
                             } catch (_: Exception) {}
                         }
                         toast = if (savedList.isEmpty()) "未提取到题目"
-                                else "已保存 ${savedList.size} 题（AI 解析 $parsed 题）"
+                                else if (parsed > 0) "已保存 ${savedList.size} 题，$parsed 题进入解析队列"
+                                else "已保存 ${savedList.size} 题"
                     }
                 }
             )

@@ -36,6 +36,7 @@ import coil.compose.AsyncImage
 import com.jiancuoti.app.data.Mistake
 import com.jiancuoti.app.data.Paper
 import com.jiancuoti.app.data.Store
+import com.jiancuoti.app.net.Supabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -181,6 +182,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
                 TextButton(onClick = {
                     Store.papers.remove(p)
                     Store.savePapers()
+                    scope.launch { Supabase.deletePaper(p.id) }
                     confirmDel = null
                     onChanged()
                 }) { Text("删除", color = Red) }
@@ -208,6 +210,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
                     count = qs.size, questions = qs.map { it.id }
                 )
                 Store.papers.add(0, paper); Store.savePapers()
+                scope.launch { Supabase.pushPaper(paper) }
                 onChanged()
                 scope.launch {
                     val msg = generateAndShare(context, title, qs, opts)

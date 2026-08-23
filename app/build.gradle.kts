@@ -11,14 +11,23 @@ android {
         applicationId = "com.jiancuoti.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 12
-        versionName = "5.8.0"
+        versionCode = 13
+        versionName = "5.11.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("${rootDir}/keystore/jiancuoti-release.jks")
+            storePassword = "jiancuoti2026"
+            keyAlias = "jiancuoti"
+            keyPassword = "jiancuoti2026"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
