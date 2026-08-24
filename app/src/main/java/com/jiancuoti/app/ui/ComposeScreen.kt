@@ -167,7 +167,7 @@ fun ComposeScreen(onChanged: () -> Unit) {
                     })
                     Spacer(Modifier.height(8.dp))
                 }
-                Spacer(Modifier.height(90.dp))
+                Spacer(Modifier.height(100.dp))
             }
         }
     }

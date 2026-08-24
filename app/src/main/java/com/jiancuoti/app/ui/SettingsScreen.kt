@@ -45,6 +45,7 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
     var enhance by remember { mutableStateOf(Store.settings["enhance"] != "0") }
     var autoParse by remember { mutableStateOf(Store.settings["autoParse"] != "0") }
     var autoKnowledge by remember { mutableStateOf(Store.settings["autoKnowledge"] != "0") }
+    var showLog by remember { mutableStateOf(false) }
 
     // 模型选择列表
     var modelPicker by remember { mutableStateOf(false) }
@@ -290,6 +291,45 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         }
         Spacer(Modifier.height(14.dp))
 
+        // 日志系统
+        SettingsCard("日志系统") {
+            Text("记录 AI 请求、解析队列、云同步过程。出问题时点「分享日志」发给开发者即可定位",
+                fontSize = 11.5.sp, lineHeight = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showLog = true }, modifier = Modifier.weight(1f)) {
+                    Text("查看日志", fontSize = 13.sp)
+                }
+                OutlinedButton(onClick = {
+                    val f = com.jiancuoti.app.net.AppLog.fileRef()
+                    if (f != null && f.exists()) {
+                        try {
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_TEXT, "简错题应用日志")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "分享日志"))
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "分享失败：${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }, modifier = Modifier.weight(1f)) {
+                    Text("分享日志", fontSize = 13.sp)
+                }
+                OutlinedButton(onClick = {
+                    com.jiancuoti.app.net.AppLog.clear()
+                    android.widget.Toast.makeText(context, "已清除", android.widget.Toast.LENGTH_SHORT).show()
+                }, modifier = Modifier.weight(1f)) {
+                    Text("清除", fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+
         // 数据
         SettingsCard("数据管理") {
             Text("错题 ${Store.mistakes.size} 条 · 试卷 ${Store.papers.size} 份",
@@ -334,6 +374,36 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             onPick = { apiModel = it; modelPicker = false },
             onClose = { modelPicker = false }
         )
+    }
+
+    // 全屏日志查看页
+    if (showLog) {
+        val logText = remember(showLog) { com.jiancuoti.app.net.AppLog.read() }
+        FullScreenPage(
+            onBack = { showLog = false },
+            titleBar = {
+                Text("应用日志", fontSize = 16.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = {
+                    val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("log", logText))
+                    android.widget.Toast.makeText(context, "已复制", android.widget.Toast.LENGTH_SHORT).show()
+                }) { Text("复制") }
+            }
+        ) {
+            androidx.compose.foundation.text.selection.SelectionContainer(
+                Modifier.weight(1f).fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp)
+            ) {
+                Text(
+                    logText.ifBlank { "（暂无日志）" },
+                    fontSize = 10.5.sp,
+                    lineHeight = 15.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }
 

@@ -60,16 +60,31 @@ object AiParser {
     /** 统一请求：逐个候选地址尝试，404 换下一个，给出可读错误 */
     private fun postChat(url: String, key: String, body: String): JSONObject {
         var lastErr: Exception? = null
+        var tried = 0
         for (ep in chatUrls(url)) {
+            tried++
             try {
                 val req = Request.Builder().url(ep)
                     .header("Authorization", "Bearer $key")
                     .post(body.toRequestBody("application/json".toMediaType()))
                     .build()
                 client.newCall(req).execute().use { resp ->
-                    if (resp.code == 404) return@use  // 试下一个候选
+                    AppLog.log("AI", "请求 $ep → ${resp.code}")
+                    if (resp.code == 404) {
+                        val raw = resp.body?.string()?.take(400) ?: ""
+                        AppLog.log("AI", "404 响应体：$raw")
+                        // 地址对但模型不存在：直接报模型问题，不再换地址试
+                        if (raw.contains("model", true) || raw.contains("模型")) {
+                            val model = try {
+                                JSONObject(body).optString("model")
+                            } catch (_: Exception) { "" }
+                            throw Exception("模型「$model」不存在（404），请到设置里重新选择模型")
+                        }
+                        return@use  // 真·地址 404：试下一个候选
+                    }
                     if (!resp.isSuccessful) {
                         val raw = resp.body?.string()?.take(400) ?: ""
+                        AppLog.log("AI", "错误 ${resp.code}：$raw")
                         val friendly = when (resp.code) {
                             401 -> "API Key 无效或未填写正确"
                             403 -> if (raw.contains("insufficient_quota") || raw.contains("quota"))
@@ -84,11 +99,16 @@ object AiParser {
                     return JSONObject(resp.body!!.string())
                 }
             } catch (e: Exception) {
+                AppLog.log("AI", "异常：${e.message?.take(150)}")
+                if (e.message?.contains("不存在（404）") == true) throw e
                 if (e.message?.startsWith("接口返回") == true) throw e
+                if (e.message?.contains("API Key") == true) throw e
+                if (e.message?.contains("额度") == true) throw e
                 lastErr = e
             }
         }
-        throw Exception("所有地址均 404，请检查接口地址（需为 OpenAI 兼容地址，可只填站点根地址）")
+        AppLog.log("AI", "全部 $tried 个候选地址均失败")
+        throw Exception("接口地址无法访问（404），请检查地址是否为 OpenAI 兼容格式；若模型名正确仍报错，把日志发给开发者")
     }
 
     private fun JSONObject.extractContent(): String {

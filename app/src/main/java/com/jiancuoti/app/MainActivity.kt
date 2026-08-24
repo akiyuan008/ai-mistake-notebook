@@ -109,6 +109,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         Store.init(applicationContext)
+        com.jiancuoti.app.net.AppLog.init(applicationContext)
         enableEdgeToEdge()
         try {
             window.attributes = window.attributes.apply {
@@ -232,61 +233,79 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                // Dock：毛玻璃胶囊（纯 Compose 实现：背景副本 + Modifier.blur，无 AndroidView，杜绝崩溃）
-                val capsule = RoundedCornerShape(percent = 50)
+                // Dock 按规格：高62 圆角31 边距12 底距10；白55%+模糊24+饱和180%；白65%细边框；外阴影+顶部内高光；图标#334155；中间相机白圆浮起
+                val capsule = RoundedCornerShape(31.dp)
                 val canBlur = android.os.Build.VERSION.SDK_INT >= 31
+                val iconColor = if (dark) Color(0xFFCBD5E1) else Color(0xFF334155)
+                val iconDim = if (dark) Color(0xFFCBD5E1).copy(alpha = 0.5f)
+                              else Color(0xFF334155).copy(alpha = 0.45f)
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 30.dp)
-                        .padding(bottom = 6.dp)
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 10.dp)
                 ) {
-                    // 层1：背景副本 + 模糊（背后实际就是主背景渐变，模糊副本视觉等同背景模糊）
+                    // 外阴影容器
                     Box(
-                        Modifier.fillMaxWidth().height(58.dp)
+                        Modifier.fillMaxWidth().height(62.dp)
+                            .shadow(12.dp, capsule, clip = false)
                             .clip(capsule)
-                            .then(if (canBlur) Modifier.blur(24.dp) else Modifier)
-                            .background(Brush.verticalGradient(listOf(bgTop, bgBottom)))
                     ) {
-                        Box(Modifier.size(150.dp).offset(x = 170.dp, y = (-80).dp)
-                            .background(
-                                Brush.radialGradient(listOf(
-                                    if (dark) Color(0xFF2C5A88).copy(alpha = 0.5f)
-                                    else Color(0xFF7DD3FC).copy(alpha = 0.4f),
-                                    Color.Transparent)),
-                                CircleShape
-                            ))
-                        Box(Modifier.size(130.dp).offset(x = (-60).dp, y = (-30).dp)
-                            .background(
-                                Brush.radialGradient(listOf(
-                                    if (dark) Color(0xFF1B4666).copy(alpha = 0.4f)
-                                    else Color(0xFFBAE6FD).copy(alpha = 0.35f),
-                                    Color.Transparent)),
-                                CircleShape
-                            ))
-                    }
-                    // 层2：半透明蒙层（玻璃通透感）
-                    Box(
-                        Modifier.fillMaxWidth().height(58.dp)
-                            .clip(capsule)
-                            .background(
-                                if (dark) Color(0xFF101B29).copy(alpha = 0.55f)
-                                else Color.White.copy(alpha = 0.38f)
-                            )
-                    )
-                    // 层3：高光描边
-                    Box(
-                        Modifier.fillMaxWidth().height(58.dp)
-                            .clip(capsule)
-                            .border(
-                                1.dp,
-                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.22f)
-                                else Color.White.copy(alpha = 0.9f),
-                                capsule
-                            )
-                    )
-                    // 层4：图标
-                    Box(Modifier.fillMaxWidth().height(58.dp)) {
+                        // 层1：背景副本 + 模糊（光斑色彩加强 ≈ saturate 180%）
+                        Box(
+                            Modifier.fillMaxSize()
+                                .then(if (canBlur) Modifier.blur(24.dp) else Modifier)
+                                .background(Brush.verticalGradient(listOf(bgTop, bgBottom)))
+                        ) {
+                            Box(Modifier.size(150.dp).offset(x = 170.dp, y = (-80).dp)
+                                .background(
+                                    Brush.radialGradient(listOf(
+                                        if (dark) Color(0xFF2E6BA8).copy(alpha = 0.6f)
+                                        else Color(0xFF4FC3F7).copy(alpha = 0.55f),
+                                        Color.Transparent)),
+                                    CircleShape
+                                ))
+                            Box(Modifier.size(130.dp).offset(x = (-60).dp, y = (-30).dp)
+                                .background(
+                                    Brush.radialGradient(listOf(
+                                        if (dark) Color(0xFF1E5A8A).copy(alpha = 0.5f)
+                                        else Color(0xFF81D4FA).copy(alpha = 0.5f),
+                                        Color.Transparent)),
+                                    CircleShape
+                                ))
+                        }
+                        // 层2：半透明蒙层（浅色白55% / 深色暗55%）
+                        Box(
+                            Modifier.fillMaxSize()
+                                .background(
+                                    if (dark) Color(0xFF0F1B2D).copy(alpha = 0.55f)
+                                    else Color.White.copy(alpha = 0.55f)
+                                )
+                        )
+                        // 层3：细边框
+                        Box(
+                            Modifier.fillMaxSize()
+                                .border(
+                                    1.dp,
+                                    if (dark) Color.White.copy(alpha = 0.15f)
+                                    else Color.White.copy(alpha = 0.65f),
+                                    capsule
+                                )
+                        )
+                        // 层4：顶部内高光
+                        Box(
+                            Modifier.fillMaxWidth().height(1.dp)
+                                .align(Alignment.TopCenter)
+                                .padding(horizontal = 20.dp)
+                                .background(
+                                    Brush.horizontalGradient(listOf(
+                                        Color.White.copy(alpha = 0.05f),
+                                        Color.White.copy(alpha = if (dark) 0.35f else 0.8f),
+                                        Color.White.copy(alpha = 0.05f)
+                                    ))
+                                )
+                        )
+                        // 层5：图标
                         Row(
                             Modifier.fillMaxSize(),
                             verticalAlignment = Alignment.CenterVertically
@@ -298,8 +317,6 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                 "统计" to 3,
                                 "我的" to 4
                             )
-                            val ink = MaterialTheme.colorScheme.onSurface
-                            val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             items.forEach { (_, idx) ->
                                 Box(
                                     Modifier.weight(1f).fillMaxHeight()
@@ -307,34 +324,26 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (idx == 2) {
-                                        // 中间拍摄：玻璃白圆 + 墨色图标
+                                        // 中间拍摄：白圆 + 阴影浮起
                                         Box(
-                                            Modifier.size(42.dp)
+                                            Modifier.size(46.dp)
+                                                .shadow(8.dp, CircleShape)
                                                 .clip(CircleShape)
-                                                .background(
-                                                    if (dark) Color(0xFFDCEBF7).copy(alpha = 0.92f)
-                                                    else Color.White.copy(alpha = 0.95f)
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    if (dark) Color.White.copy(alpha = 0.3f)
-                                                    else Color.White,
-                                                    CircleShape
-                                                ),
+                                                .background(Color.White),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            DockIcon(2, Color(0xFF16324A),
-                                                modifier = Modifier.size(23.dp))
+                                            DockIcon(2, Color(0xFF334155),
+                                                modifier = Modifier.size(24.dp))
                                         }
                                     } else {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            DockIcon(idx, if (tab == idx) ink else dim,
+                                            DockIcon(idx, if (tab == idx) iconColor else iconDim,
                                                 modifier = Modifier.size(24.dp))
                                             Box(
                                                 Modifier.padding(top = 3.dp)
                                                     .size(if (tab == idx) 4.dp else 0.dp)
                                                     .clip(CircleShape)
-                                                    .background(ink)
+                                                    .background(iconColor)
                                             )
                                         }
                                     }

@@ -49,6 +49,7 @@ object BgTasks {
     fun enqueueParse(mistakeId: String, mode: String = "full") {
         if (parseQueue.any { it.mistakeId == mistakeId && (it.status == "wait" || it.status == "doing") }) return
         parseQueue.add(ParseTask(mistakeId, mode, "wait"))
+        AppLog.log("解析", "入队 mistakeId=$mistakeId mode=$mode 队列长度=${parseQueue.size}")
         pump()
     }
 
@@ -64,8 +65,10 @@ object BgTasks {
             try {
                 processTask(next)
                 next.status = "done"
+                AppLog.log("解析", "完成 mistakeId=${next.mistakeId}")
             } catch (e: Exception) {
                 next.status = "fail"
+                AppLog.log("解析", "失败 mistakeId=${next.mistakeId}: ${e.message?.take(120)}")
                 val m = Store.mistakes.firstOrNull { it.id == next.mistakeId }
                 if (m != null) {
                     m.parsing = false

@@ -217,7 +217,7 @@ fun LibraryScreen(onChanged: () -> Unit, onResumeDrafts: () -> Unit = {}, nav: P
                         else nav.openDetail(m)
                     }, onExport = { exportTarget = m })
                 }
-                item { Spacer(Modifier.height(90.dp)) }
+                item { Spacer(Modifier.height(100.dp)) }
             }
         }
     }
