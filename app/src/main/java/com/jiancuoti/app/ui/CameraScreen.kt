@@ -153,26 +153,6 @@ fun CameraScreen(
             )
         }
 
-        // 顶部右侧：闪光灯开关（玻璃质感）
-        Box(
-            Modifier.align(Alignment.TopEnd)
-                .statusBarsPadding().padding(end = 16.dp, top = 10.dp)
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(if (torchOn) Amber.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.18f))
-                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
-                .clickableNoRipple {
-                    torchOn = !torchOn
-                    camera?.cameraControl?.enableTorch(torchOn)
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                if (torchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                null, tint = Color.White, modifier = Modifier.size(20.dp)
-            )
-        }
-
         // 底部控制区
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -248,8 +228,25 @@ fun CameraScreen(
                     contentPadding = PaddingValues(0.dp)
                 ) {}
                 Spacer(Modifier.weight(1f))
-                // 占位，保持快门居中
-                Spacer(Modifier.size(64.dp))
+                // 右下角：闪光灯开关（玻璃质感）
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clip(RoundedCornerShape(18.dp))
+                        .background(if (torchOn) Amber.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.18f))
+                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+                        .clickableNoRipple {
+                            torchOn = !torchOn
+                            camera?.cameraControl?.enableTorch(torchOn)
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Icon(
+                        if (torchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                        null, tint = Color.White, modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text("闪光", color = Color.White, fontSize = 10.5.sp)
+                }
             }
             if (!singlePage && shots.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))

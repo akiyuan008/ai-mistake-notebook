@@ -68,6 +68,9 @@ dependencies {
     // 网络
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // 真·毛玻璃（模糊背后内容，API 31+ RenderEffect）
+    implementation("com.github.Dimezis:BlurView:version-2.0.6")
+
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

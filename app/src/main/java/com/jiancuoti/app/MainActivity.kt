@@ -76,15 +76,16 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        if (Supabase.configured) {
-            lifecycleScope.launch {
+        // 非关键任务延迟启动（让首帧先渲染出来）：云同步 + 续析 + 轮询
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(600)
+            if (Supabase.configured) {
                 Supabase.pull()
                 Supabase.pullPapers()
             }
+            com.jiancuoti.app.net.BgTasks.resumePending()
+            com.jiancuoti.app.net.BgTasks.startSyncLoop()
         }
-        // 上次未完成的解析任务重新入队 + 启动云同步轮询
-        com.jiancuoti.app.net.BgTasks.resumePending()
-        com.jiancuoti.app.net.BgTasks.startSyncLoop()
     }
 }
 
@@ -166,90 +167,110 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                // Dock：玻璃拟态磨砂胶囊，纯图标无文字，贴底
-                val glassLight = listOf(
-                    Color.White.copy(alpha = 0.78f),
-                    Color.White.copy(alpha = 0.55f)
-                )
-                val glassDark = listOf(
-                    Color(0xFF22344A).copy(alpha = 0.88f),
-                    Color(0xFF1A2736).copy(alpha = 0.78f)
-                )
+                // Dock：真·毛玻璃（BlurView 模糊背后内容，教程三层结构）
+                val supportBlur = android.os.Build.VERSION.SDK_INT >= 31
+                val rootContent = (context as? android.app.Activity)
+                    ?.findViewById<android.view.ViewGroup>(android.R.id.content)
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 30.dp)
                         .padding(bottom = 6.dp)
                 ) {
-                    Surface(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(percent = 50),
-                        color = Color.Transparent,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (dark) Color(0xFFBFE0F5).copy(alpha = 0.18f)
-                            else Color.White.copy(alpha = 0.85f)
-                        ),
-                        shadowElevation = 10.dp
-                    ) {
+                    // 中间层：BlurView（模糊背后的内容层）
+                    if (supportBlur && rootContent != null) {
+                        androidx.compose.ui.viewinterop.AndroidView(
+                            factory = { ctx ->
+                                eightbitlab.com.blurview.BlurView(ctx).apply {
+                                    setupWith(rootContent, eightbitlab.com.blurview.RenderEffectBlur())
+                                        .setFrameClearDrawable(null)
+                                        .setBlurRadius(18f)
+                                    setOverlayColor(
+                                        if (dark) 0x99101B29.toInt() else 0x59FFFFFF
+                                    )
+                                    outlineProvider = object : android.view.ViewOutlineProvider() {
+                                        override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                                            outline.setRoundRect(0, 0, view.width, view.height, view.height / 2f)
+                                        }
+                                    }
+                                    clipToOutline = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(58.dp)
+                        )
+                    } else {
+                        // 低版本降级：半透明玻璃胶囊
                         Box(
                             Modifier.fillMaxWidth().height(58.dp)
+                                .clip(RoundedCornerShape(percent = 50))
                                 .background(
                                     Brush.verticalGradient(
-                                        if (dark) glassDark else glassLight
+                                        if (dark) listOf(Color(0xFF22344A).copy(alpha = 0.9f), Color(0xFF1A2736).copy(alpha = 0.82f))
+                                        else listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.6f))
                                     )
                                 )
+                        )
+                    }
+                    // 前景层：高光描边 + 图标
+                    Box(
+                        Modifier.fillMaxWidth().height(58.dp)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .border(
+                                1.dp,
+                                if (dark) Color(0xFFBFE0F5).copy(alpha = 0.22f)
+                                else Color.White.copy(alpha = 0.9f),
+                                RoundedCornerShape(percent = 50)
+                            )
+                    ) {
+                        Row(
+                            Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                Modifier.fillMaxSize(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val items: List<Pair<String, Int>> = listOf(
-                                    "错题库" to 0,
-                                    "组卷" to 1,
-                                    "拍摄" to 2,
-                                    "统计" to 3,
-                                    "我的" to 4
-                                )
-                                val ink = MaterialTheme.colorScheme.onSurface
-                                val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                items.forEach { (_, idx) ->
-                                    Box(
-                                        Modifier.weight(1f).fillMaxHeight()
-                                            .clickableNoRipple { tab = idx },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (idx == 2) {
-                                            // 中间拍摄：玻璃白圆 + 墨色图标（非蓝非黑）
-                                            Box(
-                                                Modifier.size(42.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        if (dark) Color(0xFFDCEBF7).copy(alpha = 0.92f)
-                                                        else Color.White.copy(alpha = 0.95f)
-                                                    )
-                                                    .border(
-                                                        1.dp,
-                                                        if (dark) Color.White.copy(alpha = 0.3f)
-                                                        else Color.White,
-                                                        CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                DockIcon(2, Color(0xFF16324A),
-                                                    modifier = Modifier.size(23.dp))
-                                            }
-                                        } else {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                DockIcon(idx, if (tab == idx) ink else dim,
-                                                    modifier = Modifier.size(24.dp))
-                                                Box(
-                                                    Modifier.padding(top = 3.dp)
-                                                        .size(if (tab == idx) 4.dp else 0.dp)
-                                                        .clip(CircleShape)
-                                                        .background(ink)
+                            val items: List<Pair<String, Int>> = listOf(
+                                "错题库" to 0,
+                                "组卷" to 1,
+                                "拍摄" to 2,
+                                "统计" to 3,
+                                "我的" to 4
+                            )
+                            val ink = MaterialTheme.colorScheme.onSurface
+                            val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            items.forEach { (_, idx) ->
+                                Box(
+                                    Modifier.weight(1f).fillMaxHeight()
+                                        .clickableNoRipple { tab = idx },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (idx == 2) {
+                                        // 中间拍摄：玻璃白圆 + 墨色图标
+                                        Box(
+                                            Modifier.size(42.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (dark) Color(0xFFDCEBF7).copy(alpha = 0.92f)
+                                                    else Color.White.copy(alpha = 0.95f)
                                                 )
-                                            }
+                                                .border(
+                                                    1.dp,
+                                                    if (dark) Color.White.copy(alpha = 0.3f)
+                                                    else Color.White,
+                                                    CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            DockIcon(2, Color(0xFF16324A),
+                                                modifier = Modifier.size(23.dp))
+                                        }
+                                    } else {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            DockIcon(idx, if (tab == idx) ink else dim,
+                                                modifier = Modifier.size(24.dp))
+                                            Box(
+                                                Modifier.padding(top = 3.dp)
+                                                    .size(if (tab == idx) 4.dp else 0.dp)
+                                                    .clip(CircleShape)
+                                                    .background(ink)
+                                            )
                                         }
                                     }
                                 }
@@ -310,15 +331,28 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             }
         }
 
-        // 裁剪全屏层
+        // 裁剪全屏层（异步解码图片，不阻塞首帧）
         if (cropFiles.isNotEmpty() && cropIndex < cropFiles.size) {
-            val displayBmps = remember(cropFiles) {
-                kotlinx.coroutines.runBlocking {
-                    withContext(Dispatchers.IO) { cropFiles.map { loadBitmap(it, 1200) } }
+            val displayBmps by androidx.compose.runtime.produceState<List<android.graphics.Bitmap>?>(
+                initialValue = null, key1 = cropFiles
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    cropFiles.map { loadBitmap(it, 1200) }
                 }
             }
+            val bmps = displayBmps
+            if (bmps == null) {
+                Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)),
+                    contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color.White)
+                        Spacer(Modifier.height(12.dp))
+                        Text("正在加载图片…", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                    }
+                }
+            } else {
             CropScreen(
-                displayBitmaps = displayBmps,
+                displayBitmaps = bmps,
                 pageIndex = cropIndex,
                 onSwitchPage = { cropIndex = it },
                 onBack = { cropFiles = emptyList() },
@@ -394,6 +428,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     }
                 }
             )
+            }
         }
 
         // 全屏页面栈渲染（最上层，盖住 Dock）
