@@ -221,13 +221,13 @@ object AiParser {
                 """.trimIndent() else "" }
                 请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
                 只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
-                question(新题干，含完整选项，公式用LaTeX写在${'$'}中)、answer(参考答案，简洁)、analysis(分步解析，每步一行，不超过4步，公式用${'$'}包裹)、difficulty(1到3的整数)、source(来源标注)。
-                控制总篇幅，不要冗长。
+                question(新题干，含完整选项，公式用LaTeX写在${'$'}中)、answer(参考答案，简洁)、analysis(分步解析，每步一行，不超过3步，简洁，公式用${'$'}包裹)、difficulty(1到3的整数)、source(来源标注)。
+                严格控制总篇幅，解析务必精简。
             """.trimIndent()
 
             val body = JSONObject().apply {
                 put("model", model)
-                put("max_tokens", 1300)
+                put("max_tokens", 1100)
                 put("temperature", 0.5)
                 put("messages", JSONArray()
                     .put(JSONObject().put("role", "system")

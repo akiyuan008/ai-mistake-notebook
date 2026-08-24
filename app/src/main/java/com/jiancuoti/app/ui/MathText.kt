@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
  * - \mathbb{Z} → ℤ 等黑板粗体映射
  */
 
-private val SYMBOLS = mapOf(
+internal val SYMBOLS = mapOf(
     "\\pi" to "π", "\\theta" to "θ", "\\alpha" to "α", "\\beta" to "β", "\\gamma" to "γ",
     "\\delta" to "δ", "\\epsilon" to "ε", "\\varepsilon" to "ε", "\\lambda" to "λ", "\\mu" to "μ",
     "\\rho" to "ρ", "\\sigma" to "σ", "\\omega" to "ω", "\\phi" to "φ", "\\varphi" to "φ",
@@ -64,7 +64,7 @@ private val SYMBOLS = mapOf(
 )
 
 /** 黑板粗体字母 → Unicode 双线字母 */
-private val MATHBB = mapOf(
+internal val MATHBB = mapOf(
     "N" to "ℕ", "Z" to "ℤ", "Q" to "ℚ", "R" to "ℝ", "C" to "ℂ",
     "H" to "ℍ", "P" to "ℙ", "E" to "𝔼"
 )

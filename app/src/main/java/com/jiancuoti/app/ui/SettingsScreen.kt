@@ -269,10 +269,10 @@ fun SettingsScreen(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                     ) {
                         Text(
                             when (task.status) {
-                                "doing" -> "⏳ 解析中"
-                                "done" -> "✅ 完成"
-                                "fail" -> "❌ 失败"
-                                else -> "🕐 排队中"
+                                "doing" -> "解析中"
+                                "done" -> "完成"
+                                "fail" -> "失败"
+                                else -> "排队中"
                             },
                             fontSize = 11.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

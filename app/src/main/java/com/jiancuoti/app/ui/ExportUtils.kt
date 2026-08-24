@@ -230,12 +230,23 @@ suspend fun generatePaperPdf(
 
         fun pageBreakWrapped() { newPage() }
 
+        // 富文本绘制：文字+公式混排（竖式分数/上下标，与 APP 内显示一致）
+        fun drawRich(text: String, paint: Paint): Float {
+            lateinit var rich: PdfRichText
+            rich = PdfRichText(canvas, paint, marginX, contentW, y, pageH - 58 * scale) {
+                newPage()
+                rich.canvas = canvas
+                rich.y = y
+            }
+            return rich.draw(text)
+        }
+
         qs.forEachIndexed { i, q ->
             newPageIfNeeded(90 * scale)
             val kpTag = if (opts.withKnowledge && q.knowledge.isNotBlank()) " · ${q.knowledge}" else ""
             canvas.drawText("${i + 1}.（${q.subject}$kpTag）", marginX, y, qPaint); y += 16 * scale
             if (q.question.isNotBlank()) {
-                y = drawWrapped(canvas, renderMixedText(q.question), bodyPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y = drawRich(q.question, bodyPaint)
                 y += 3 * scale
             }
             val img = if (opts.withImage) Store.imgFile(q.imageFile) else null
@@ -257,7 +268,7 @@ suspend fun generatePaperPdf(
                 } catch (_: Exception) {}
             }
             if (opts.withAnalysis && q.analysis.isNotBlank()) {
-                y = drawWrapped(canvas, "【解析】" + renderMixedText(q.analysis), ansPaint, marginX, y, contentW, pageH - 58 * scale) { pageBreakWrapped() }
+                y = drawRich("【解析】" + q.analysis, ansPaint)
                 y += 3 * scale
             }
             newPageIfNeeded(36 * scale)
@@ -274,7 +285,7 @@ suspend fun generatePaperPdf(
                 if (q.answer.isNotBlank()) {
                     newPageIfNeeded(60 * scale)
                     canvas.drawText("${i + 1}. ", marginX, y, qPaint)
-                    y = drawWrapped(canvas, renderMixedText(q.answer), bodyPaint, marginX + 20 * scale, y, contentW - 20 * scale, pageH - 58 * scale) { pageBreakWrapped() }
+                    y = drawRich(q.answer, Paint(bodyPaint))
                     y += 6 * scale
                 }
             }

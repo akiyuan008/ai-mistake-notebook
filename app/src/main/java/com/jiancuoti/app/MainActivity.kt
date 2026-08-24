@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
             setPadding(48, 120, 48, 48)
         }
         val title = android.widget.TextView(this).apply {
-            text = "⚠ 上次启动发生了崩溃"
+            text = "上次启动发生了崩溃"
             textSize = 18f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }

@@ -38,8 +38,9 @@ object BgTasks {
 
     data class ParseTask(
         val mistakeId: String,
-        val mode: String,      // full=完整解析 knowledge=仅知识点
-        var status: String     // wait / doing / done / fail
+        val mode: String,      // full=完整解析 knowledge=仅知识点 variants=举一反三
+        var status: String,    // wait / doing / done / fail
+        val extra: String = ""
     )
 
     val parseQueue = mutableStateListOf<ParseTask>()
@@ -88,6 +89,24 @@ object BgTasks {
 
     private suspend fun processTask(task: ParseTask) {
         val m = Store.mistakes.firstOrNull { it.id == task.mistakeId } ?: return
+        if (task.mode == "variants") {
+            try {
+                val vs = AiParser.variants(
+                    m.subject, m.knowledge, m.question, m.answer, task.extra == "1"
+                )
+                variantsBusy[m.id] = false
+                if (vs.isEmpty()) {
+                    variantsError[m.id] = "生成失败：未返回有效题目"
+                } else {
+                    variants[m.id] = vs
+                    toast("举一反三已生成 ${vs.size} 道变式题")
+                }
+            } catch (e: Exception) {
+                variantsBusy[m.id] = false
+                variantsError[m.id] = "生成失败：${e.message?.take(80) ?: "未知错误"}"
+            }
+            return
+        }
         val f = Store.imgFile(m.imageFile) ?: throw Exception("该题没有图片")
         val bmp = withContext(Dispatchers.IO) { loadBitmap(f, 1600) }
         if (task.mode == "full") {
@@ -144,28 +163,16 @@ object BgTasks {
 
     /* ---------------- 举一反三 ---------------- */
 
+    /** 举一反三：进全局队列（排队执行，可在「我的」页看进度） */
     fun startVariants(m: MistakeLike, preferReal: Boolean) {
         val key = m.id
         if (variantsBusy[key] == true) return
+        if (parseQueue.any { it.mistakeId == key && it.mode == "variants" && (it.status == "wait" || it.status == "doing") }) return
         variantsBusy[key] = true
         variantsError.remove(key)
-        scope.launch {
-            try {
-                val vs = AiParser.variants(
-                    m.subject, m.knowledge, m.question, m.answer, preferReal
-                )
-                variantsBusy[key] = false
-                if (vs.isEmpty()) {
-                    variantsError[key] = "生成失败：未返回有效题目"
-                } else {
-                    variants[key] = vs
-                    toast("举一反三已生成 ${vs.size} 道变式题")
-                }
-            } catch (e: Exception) {
-                variantsBusy[key] = false
-                variantsError[key] = "生成失败：${e.message?.take(80) ?: "未知错误"}"
-            }
-        }
+        parseQueue.add(ParseTask(key, "variants", "wait", if (preferReal) "1" else "0"))
+        AppLog.log("举一反三", "入队 ${m.id} 队列长度=${parseQueue.size}")
+        pump()
     }
 }
 

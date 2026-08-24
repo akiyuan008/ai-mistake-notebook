@@ -107,7 +107,6 @@ fun StatsScreen() {
             ColorStatCard(
                 num = streak, label = "连续学习·天",
                 brush = Brush.linearGradient(listOf(Color(0xFFFBBF24), Color(0xFFF59E0B))),
-                emoji = "🔥",
                 modifier = Modifier.weight(1f)
             )
             ColorStatCard(
