@@ -40,7 +40,68 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
+/** BlurView 安全包装：绘制异常时自动关闭模糊（防个别机型 RenderEffect 崩溃） */
+class SafeBlurView(ctx: android.content.Context) : eightbitlab.com.blurview.BlurView(ctx) {
+    @Volatile private var drawFailed = false
+    override fun draw(canvas: android.graphics.Canvas) {
+        if (drawFailed) return
+        try {
+            super.draw(canvas)
+        } catch (t: Throwable) {
+            drawFailed = true
+            try { setBlurEnabled(false) } catch (_: Throwable) {}
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
+
+    /** 崩溃日志屏：纯原生 View（不依赖 Compose），保证任何崩溃后都能看到堆栈 */
+    private fun showCrashScreen(crashFile: File) {
+        val log = try { crashFile.readText().takeLast(3000) } catch (e: Exception) { "日志读取失败：$e" }
+        val scroll = android.widget.ScrollView(this)
+        val col = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 120, 48, 48)
+        }
+        val title = android.widget.TextView(this).apply {
+            text = "⚠ 上次启动发生了崩溃"
+            textSize = 18f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        val hint = android.widget.TextView(this).apply {
+            text = "请截图下面的内容发给开发者，然后点「清除并尝试进入」：\n"
+            textSize = 13f
+            setPadding(0, 24, 0, 24)
+        }
+        val tv = android.widget.TextView(this).apply {
+            text = log
+            textSize = 11f
+            setTextIsSelectable(true)
+            setTypeface(android.graphics.Typeface.MONOSPACE)
+        }
+        val btnRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            setPadding(0, 40, 0, 0)
+        }
+        val btnGo = android.widget.Button(this).apply { text = "清除并尝试进入" }
+        btnGo.setOnClickListener {
+            crashFile.delete()
+            recreate()
+        }
+        val btnCopy = android.widget.Button(this).apply { text = "复制日志" }
+        btnCopy.setOnClickListener {
+            val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", log))
+            android.widget.Toast.makeText(this, "已复制", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        btnRow.addView(btnGo)
+        btnRow.addView(btnCopy)
+        col.addView(title); col.addView(hint); col.addView(tv); col.addView(btnRow)
+        scroll.addView(col)
+        setContentView(scroll)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 崩溃日志：写到应用目录，便于排查闪退
@@ -53,6 +114,12 @@ class MainActivity : ComponentActivity() {
                 )
             } catch (_: Exception) {}
             defaultHandler?.uncaughtException(t, e)
+        }
+        // 上次启动崩溃过 → 先显示日志屏（不走正常启动，保证日志一定看得到）
+        val crashFile = File(filesDir, "crash_log.txt")
+        if (crashFile.exists()) {
+            showCrashScreen(crashFile)
+            return
         }
         Store.init(applicationContext)
         enableEdgeToEdge()
@@ -211,7 +278,7 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
                         androidx.compose.ui.viewinterop.AndroidView(
                             factory = { ctx ->
                                 try {
-                                    eightbitlab.com.blurview.BlurView(ctx).apply {
+                                    SafeBlurView(ctx).apply {
                                         setupWith(rootContent, eightbitlab.com.blurview.RenderEffectBlur())
                                             .setFrameClearDrawable(null)
                                             .setBlurRadius(18f)
