@@ -433,7 +433,7 @@ fun DetailPage(
             }
             if (m.answer.isNotBlank()) Section("正确答案", Green) { MathText(m.answer, fontSize = 14.5.sp, lineHeight = 23.sp, color = Green) }
             if (m.analysis.isNotBlank()) Section("解题流程") {
-                val lines = m.analysis.split('\n', '；')
+                val lines = normalizeMathText(m.analysis).split('\n', '；')
                     .map { it.trim().replace(Regex("^[①②③④⑤⑥⑦⑧⑨]|^\\d{1,2}[.、）)]\\s*"), "").trim() }
                     .filter { it.length > 1 }
                 if (lines.size > 1) {
@@ -677,7 +677,7 @@ fun VariantsPage(
                                 Text("【完整解析】", fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.height(3.dp))
-                                val steps = v.analysis.split('\n')
+                                val steps = normalizeMathText(v.analysis).split('\n')
                                     .map { it.trim() }
                                     .filter { it.isNotBlank() }
                                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

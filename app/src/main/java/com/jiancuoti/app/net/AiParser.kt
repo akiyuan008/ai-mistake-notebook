@@ -150,12 +150,16 @@ object AiParser {
         val m = Regex("\\{[\\s\\S]*\\}").find(text) ?: throw Exception("返回无法解析")
         val j = JSONObject(m.value)
         val subj = j.optString("subject")
+        val analysisArr = j.optJSONArray("analysis")
+        val analysisText = if (analysisArr != null) {
+            (0 until analysisArr.length()).joinToString("\n") { analysisArr.optString(it) }
+        } else j.optString("analysis")
         return@withContext ParseResult(
             subject = if (com.jiancuoti.app.data.SUBJECTS.contains(subj)) subj else "其他",
             knowledge = j.optString("knowledge"),
             question = j.optString("question"),
             answer = j.optString("answer"),
-            analysis = j.optString("analysis"),
+            analysis = analysisText,
             by = "api"
         )
     }

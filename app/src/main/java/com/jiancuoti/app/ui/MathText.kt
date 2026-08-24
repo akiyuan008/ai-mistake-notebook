@@ -201,6 +201,73 @@ fun stripMarkdown(text: String): String {
     return out
 }
 
+private val KNOWN_CMDS = listOf(
+    "frac","dfrac","tfrac","sqrt","mathrm","mathbb","mathcal","operatorname","left","right",
+    "tan","sin","cos","cot","sec","csc","log","ln","lim","max","min","pi","alpha","beta",
+    "gamma","delta","theta","lambda","mu","sigma","omega","phi","in","to","cdot","times",
+    "leq","geq","neq","approx","infty","partial","nabla","angle","perp","triangle","overline","vec","hat","text"
+)
+
+/**
+ * LaTeX 修复：AI 输出的公式经常破碎（双反斜杠、\backslash、空格拆命令、
+ * \frac 无括号、\mathbbZ、analysis 是 JSON 数组等），渲染前统一修复
+ */
+fun normalizeMathText(text: String): String {
+    var t = text.trim()
+    // 1) JSON 数组字符串 → 换行拼接（先严格解析，失败则宽松切分）
+    if (t.startsWith("[") && t.endsWith("]") && t.contains("\"")) {
+        try {
+            val arr = org.json.JSONArray(t)
+            t = (0 until arr.length()).joinToString("\n") { arr.optString(it) }
+        } catch (_: Exception) {
+            var inner = t.substring(1, t.length - 1).trim()
+            if (inner.startsWith("\"")) inner = inner.substring(1)
+            if (inner.endsWith("\"")) inner = inner.dropLast(1)
+            val parts = inner.split(Regex("\"\\s*,\\s*\""))
+            if (parts.size > 1) {
+                t = parts.joinToString("\n") { it.replace("\\\"", "\"") }
+            }
+        }
+    }
+    // 2) \$ → $
+    t = t.replace("\\$", "$")
+    // 3) 双反斜杠 → 单反斜杠
+    t = t.replace("\\\\", "\\")
+    // 4) \{ \} → { }
+    t = t.replace("\\{", "{").replace("\\}", "}")
+    // 5) 去掉 \backslash（模型转义残留）
+    t = Regex("\\\\backslash\\s*").replace(t, "")
+    // 6) \mathrm{l e f t} → \mathrm{left} → \left
+    t = Regex("\\\\(mathrm|text|operatorname)\\{([^}]*)\\}").replace(t) { m ->
+        "\\" + m.groupValues[1] + "{" + m.groupValues[2].replace(Regex("\\s+"), "") + "}"
+    }
+    t = Regex("\\\\mathrm\\{(left|right|frac|pi|tan|sin|cos|in)\\}").replace(t) {
+        "\\" + it.groupValues[1]
+    }
+    // 7) 裸命令词（f r a c → \frac）
+    for (c in KNOWN_CMDS) {
+        val spaced = c.toCharArray().joinToString("\\s*") { Regex.escape(it.toString()) }
+        t = Regex("(?<![a-zA-Z\\\\])($spaced)(?![a-zA-Z])").replace(t) { "\\" + c }
+    }
+    // 8) \p i → \pi（反斜杠后字母被空格拆开）
+    t = Regex("\\\\((?:[a-zA-Z]\\s+)*[a-zA-Z])").replace(t) { m ->
+        val word = m.groupValues[1].replace(Regex("\\s+"), "")
+        if (word in KNOWN_CMDS) "\\$word" else m.value
+    }
+    // 9) \mathbbZ → \mathbb{Z}
+    t = Regex("\\\\mathbb\\s*([A-Z])(?![a-zA-Z{])").replace(t) {
+        "\\mathbb{${it.groupValues[1]}}"
+    }
+    // 10) \frac 无括号修复：\frack\pi2 → \frac{k\pi}{2}；\frac\pi12 → \frac{\pi}{12}；\frac12 → \frac{1}{2}
+    t = Regex("\\\\frac\\s*((?:[a-zA-Z]+)?\\\\[a-zA-Z]+)\\s*(\\d{1,3})").replace(t) { m ->
+        "\\frac{${m.groupValues[1]}}{${m.groupValues[2]}}"
+    }
+    t = Regex("\\\\frac\\s*(\\d)\\s*(\\d{1,2})").replace(t) { m ->
+        "\\frac{${m.groupValues[1]}}{${m.groupValues[2]}}"
+    }
+    return t
+}
+
 /* ---------------- 富文本渲染（竖式分数 + 真实上下标 + 斜体变量） ---------------- */
 
 private const val INLINE_ID = "inline"
@@ -353,6 +420,9 @@ private fun buildMixedAnnotated(
     val inline = mutableMapOf<String, InlineTextContent>()
     val idCounter = intArrayOf(0)
 
+    // 整段含 LaTeX 命令但没有 $ 包裹 → 全文按公式渲染（CJK 普通文字不受影响）
+    val hasCmd = Regex("\\\\[a-zA-Z]").containsMatchIn(text)
+
     data class Span(val start: Int, val end: Int)
     val spans = mutableListOf<Span>()
     fun collect(pattern: Regex) {
@@ -367,20 +437,32 @@ private fun buildMixedAnnotated(
     collect(Regex("\\$([^$\\n]+?)\\$"))
     spans.sortBy { it.start }
 
+    if (spans.isEmpty() && hasCmd) {
+        buildLatexAnnotated(text, sb, inline, fontSize, color, idCounter)
+        return sb.toAnnotatedString() to inline
+    }
+
+    // 普通段：含命令的也按公式渲染，否则原样
+    fun appendPlain(seg: String) {
+        if (seg.isEmpty()) return
+        if (Regex("\\\\[a-zA-Z]").containsMatchIn(seg)) {
+            buildLatexAnnotated(seg, sb, inline, fontSize, color, idCounter)
+        } else {
+            sb.append(seg.replace(Regex("\\\\([a-zA-Z]+)")) { m ->
+                SYMBOLS["\\" + m.groupValues[1]] ?: MATHBB[m.groupValues[1]] ?: m.groupValues[1]
+            })
+        }
+    }
+
     var pos = 0
     for (sp in spans) {
-        if (sp.start > pos) sb.append(text.substring(pos, sp.start))
+        if (sp.start > pos) appendPlain(text.substring(pos, sp.start))
         val raw = text.substring(sp.start, sp.end)
         val inner = Regex("\\$\\$|\\\\\\[|\\\\\\]|\\\\\\(|\\\\\\)|\\$").replace(raw, "")
         buildLatexAnnotated(inner, sb, inline, fontSize, color, idCounter)
         pos = sp.end
     }
-    if (pos < text.length) {
-        val tail = text.substring(pos)
-        sb.append(tail.replace(Regex("\\\\([a-zA-Z]+)")) { m ->
-            SYMBOLS["\\" + m.groupValues[1]] ?: MATHBB[m.groupValues[1]] ?: m.groupValues[1]
-        })
-    }
+    if (pos < text.length) appendPlain(text.substring(pos))
     return sb.toAnnotatedString() to inline
 }
 
@@ -395,7 +477,7 @@ fun MathText(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip
 ) {
-    val cleaned = remember(text) { stripMarkdown(text) }
+    val cleaned = remember(text) { normalizeMathText(stripMarkdown(text)) }
     val (annotated, inline) = remember(cleaned, fontSize.value, color) {
         buildMixedAnnotated(cleaned, fontSize, color)
     }
