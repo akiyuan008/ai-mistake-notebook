@@ -43,6 +43,17 @@ import java.io.FileOutputStream
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 崩溃日志：写到应用目录，便于排查闪退
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                File(filesDir, "crash_log.txt").writeText(
+                    "${java.util.Date()} | ${android.os.Build.MODEL} API${android.os.Build.VERSION.SDK_INT}\n" +
+                    e.stackTraceToString()
+                )
+            } catch (_: Exception) {}
+            defaultHandler?.uncaughtException(t, e)
+        }
         Store.init(applicationContext)
         enableEdgeToEdge()
         try {
@@ -168,47 +179,58 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
             containerColor = Color.Transparent,
             bottomBar = {
                 // Dock：真·毛玻璃（BlurView 模糊背后内容，教程三层结构）
+                // 防护：延迟到首帧后创建 + 工厂异常降级，避免个别机型闪退
                 val supportBlur = android.os.Build.VERSION.SDK_INT >= 31
                 val rootContent = (context as? android.app.Activity)
                     ?.findViewById<android.view.ViewGroup>(android.R.id.content)
+                var blurReady by remember { mutableStateOf(false) }
+                var blurFailed by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(80)
+                    blurReady = true
+                }
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 30.dp)
                         .padding(bottom = 6.dp)
                 ) {
+                    // 底层：半透明玻璃胶囊（BlurView 失败/未就绪时的保底外观）
+                    Box(
+                        Modifier.fillMaxWidth().height(58.dp)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .background(
+                                Brush.verticalGradient(
+                                    if (dark) listOf(Color(0xFF22344A).copy(alpha = 0.9f), Color(0xFF1A2736).copy(alpha = 0.82f))
+                                    else listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.6f))
+                                )
+                            )
+                    )
                     // 中间层：BlurView（模糊背后的内容层）
-                    if (supportBlur && rootContent != null) {
+                    if (supportBlur && rootContent != null && blurReady && !blurFailed) {
                         androidx.compose.ui.viewinterop.AndroidView(
                             factory = { ctx ->
-                                eightbitlab.com.blurview.BlurView(ctx).apply {
-                                    setupWith(rootContent, eightbitlab.com.blurview.RenderEffectBlur())
-                                        .setFrameClearDrawable(null)
-                                        .setBlurRadius(18f)
-                                    setOverlayColor(
-                                        if (dark) 0x99101B29.toInt() else 0x59FFFFFF
-                                    )
-                                    outlineProvider = object : android.view.ViewOutlineProvider() {
-                                        override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
-                                            outline.setRoundRect(0, 0, view.width, view.height, view.height / 2f)
+                                try {
+                                    eightbitlab.com.blurview.BlurView(ctx).apply {
+                                        setupWith(rootContent, eightbitlab.com.blurview.RenderEffectBlur())
+                                            .setFrameClearDrawable(null)
+                                            .setBlurRadius(18f)
+                                        setOverlayColor(
+                                            if (dark) 0x99101B29.toInt() else 0x59FFFFFF
+                                        )
+                                        outlineProvider = object : android.view.ViewOutlineProvider() {
+                                            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                                                outline.setRoundRect(0, 0, view.width, view.height, view.height / 2f)
+                                            }
                                         }
+                                        clipToOutline = true
                                     }
-                                    clipToOutline = true
+                                } catch (t: Throwable) {
+                                    blurFailed = true
+                                    android.view.View(ctx) // 降级：由底层玻璃胶囊兜底
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(58.dp)
-                        )
-                    } else {
-                        // 低版本降级：半透明玻璃胶囊
-                        Box(
-                            Modifier.fillMaxWidth().height(58.dp)
-                                .clip(RoundedCornerShape(percent = 50))
-                                .background(
-                                    Brush.verticalGradient(
-                                        if (dark) listOf(Color(0xFF22344A).copy(alpha = 0.9f), Color(0xFF1A2736).copy(alpha = 0.82f))
-                                        else listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.6f))
-                                    )
-                                )
                         )
                     }
                     // 前景层：高光描边 + 图标
