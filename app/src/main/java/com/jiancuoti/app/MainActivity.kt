@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -39,20 +40,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-
-/** BlurView 安全包装：绘制异常时自动关闭模糊（防个别机型 RenderEffect 崩溃） */
-class SafeBlurView(ctx: android.content.Context) : eightbitlab.com.blurview.BlurView(ctx) {
-    @Volatile private var drawFailed = false
-    override fun draw(canvas: android.graphics.Canvas) {
-        if (drawFailed) return
-        try {
-            super.draw(canvas)
-        } catch (t: Throwable) {
-            drawFailed = true
-            try { setBlurEnabled(false) } catch (_: Throwable) {}
-        }
-    }
-}
 
 class MainActivity : ComponentActivity() {
 
@@ -245,72 +232,61 @@ fun MainScaffold(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                // Dock：真·毛玻璃（BlurView 模糊背后内容，教程三层结构）
-                // 防护：延迟到首帧后创建 + 工厂异常降级，避免个别机型闪退
-                val supportBlur = android.os.Build.VERSION.SDK_INT >= 31
-                val rootContent = (context as? android.app.Activity)
-                    ?.findViewById<android.view.ViewGroup>(android.R.id.content)
-                var blurReady by remember { mutableStateOf(false) }
-                var blurFailed by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay(80)
-                    blurReady = true
-                }
+                // Dock：毛玻璃胶囊（纯 Compose 实现：背景副本 + Modifier.blur，无 AndroidView，杜绝崩溃）
+                val capsule = RoundedCornerShape(percent = 50)
+                val canBlur = android.os.Build.VERSION.SDK_INT >= 31
                 Box(
                     Modifier.fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 30.dp)
                         .padding(bottom = 6.dp)
                 ) {
-                    // 底层：半透明玻璃胶囊（BlurView 失败/未就绪时的保底外观）
+                    // 层1：背景副本 + 模糊（背后实际就是主背景渐变，模糊副本视觉等同背景模糊）
                     Box(
                         Modifier.fillMaxWidth().height(58.dp)
-                            .clip(RoundedCornerShape(percent = 50))
+                            .clip(capsule)
+                            .then(if (canBlur) Modifier.blur(24.dp) else Modifier)
+                            .background(Brush.verticalGradient(listOf(bgTop, bgBottom)))
+                    ) {
+                        Box(Modifier.size(150.dp).offset(x = 170.dp, y = (-80).dp)
                             .background(
-                                Brush.verticalGradient(
-                                    if (dark) listOf(Color(0xFF22344A).copy(alpha = 0.9f), Color(0xFF1A2736).copy(alpha = 0.82f))
-                                    else listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.6f))
-                                )
+                                Brush.radialGradient(listOf(
+                                    if (dark) Color(0xFF2C5A88).copy(alpha = 0.5f)
+                                    else Color(0xFF7DD3FC).copy(alpha = 0.4f),
+                                    Color.Transparent)),
+                                CircleShape
+                            ))
+                        Box(Modifier.size(130.dp).offset(x = (-60).dp, y = (-30).dp)
+                            .background(
+                                Brush.radialGradient(listOf(
+                                    if (dark) Color(0xFF1B4666).copy(alpha = 0.4f)
+                                    else Color(0xFFBAE6FD).copy(alpha = 0.35f),
+                                    Color.Transparent)),
+                                CircleShape
+                            ))
+                    }
+                    // 层2：半透明蒙层（玻璃通透感）
+                    Box(
+                        Modifier.fillMaxWidth().height(58.dp)
+                            .clip(capsule)
+                            .background(
+                                if (dark) Color(0xFF101B29).copy(alpha = 0.55f)
+                                else Color.White.copy(alpha = 0.38f)
                             )
                     )
-                    // 中间层：BlurView（模糊背后的内容层）
-                    if (supportBlur && rootContent != null && blurReady && !blurFailed) {
-                        androidx.compose.ui.viewinterop.AndroidView(
-                            factory = { ctx ->
-                                try {
-                                    SafeBlurView(ctx).apply {
-                                        setupWith(rootContent, eightbitlab.com.blurview.RenderEffectBlur())
-                                            .setFrameClearDrawable(null)
-                                            .setBlurRadius(18f)
-                                        setOverlayColor(
-                                            if (dark) 0x99101B29.toInt() else 0x59FFFFFF
-                                        )
-                                        outlineProvider = object : android.view.ViewOutlineProvider() {
-                                            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
-                                                outline.setRoundRect(0, 0, view.width, view.height, view.height / 2f)
-                                            }
-                                        }
-                                        clipToOutline = true
-                                    }
-                                } catch (t: Throwable) {
-                                    blurFailed = true
-                                    android.view.View(ctx) // 降级：由底层玻璃胶囊兜底
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(58.dp)
-                        )
-                    }
-                    // 前景层：高光描边 + 图标
+                    // 层3：高光描边
                     Box(
                         Modifier.fillMaxWidth().height(58.dp)
-                            .clip(RoundedCornerShape(percent = 50))
+                            .clip(capsule)
                             .border(
                                 1.dp,
                                 if (dark) Color(0xFFBFE0F5).copy(alpha = 0.22f)
                                 else Color.White.copy(alpha = 0.9f),
-                                RoundedCornerShape(percent = 50)
+                                capsule
                             )
-                    ) {
+                    )
+                    // 层4：图标
+                    Box(Modifier.fillMaxWidth().height(58.dp)) {
                         Row(
                             Modifier.fillMaxSize(),
                             verticalAlignment = Alignment.CenterVertically
