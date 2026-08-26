@@ -138,7 +138,7 @@ object AiParser {
             put("temperature", 0.1)
             put("messages", JSONArray()
                 .put(JSONObject().put("role", "system")
-                    .put("content", "你是错题整理助手。看题图，只输出 JSON（无 markdown）。字段：knowledge——定位格式「学科·必修/选修册·第几章 章名·节名·核心考点」，不出现「人教版」；subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)；question(完整题干，公式用 LaTeX 写在 \$ 中，认真辨认手写)；answer(正确答案，简洁)；analysis(分步解析，每步一行，简洁明了，公式用 \$ 包裹)。控制篇幅，不要冗长。"))
+                    .put("content", "你是错题整理助手。看题图，只输出 JSON（无 markdown）。字段：knowledge——定位格式「学科·必修/选修册·第几章 章名·节名·核心考点」，不出现「人教版」；subject(限：数学/语文/英语/物理/化学/生物/历史/地理/政治/其他)；question(完整题干，认真辨认手写)；answer(正确答案，简洁)；analysis(分步解析，每步一行，简洁明了)。【公式格式硬性要求，严格遵守】所有公式必须写在${'$'}...${'$'}内；分数一律\\frac{分子}{分母}，花括号不可省略；上下标一律^{...}和_{...}，花括号不可省略；括号直接用()和[]，禁止\\left和\\right；禁止\\mathrm、\\text、\\backslash；希腊字母用\\pi \\theta \\alpha等；整数集写\\mathbb{Z}；只允许以上常用命令，其他LaTeX命令一律禁止。"))
                 .put(JSONObject().put("role", "user").put("content", JSONArray()
                     .put(JSONObject().put("type", "text").put("text", "请解析这道题并按要求输出 JSON。"))
                     .put(JSONObject().put("type", "image_url")
@@ -217,11 +217,15 @@ object AiParser {
                 答案：$answer
 
                 ${if (preferReal) """
-                重要要求：优先从近几年（2020年及以后）全国各地中考/高考真题、模拟题、期中期末考题中挑选与该知识点高度契合的题目（若你具备联网搜索能力，请先搜索近年真题再作答）。真题的 answer 必须采用官方公布的参考答案（分步骤完整呈现），并在 source 字段注明来源（如"2023·江苏高考"）。找不到足够真题时才自行编写，source 标注"改编"。
+                重要要求：
+                1. 请优先使用联网搜索能力，搜索 2025-2026 年的最新真题/模拟题（2023-2024 年也可接受，禁止使用 2023 年以前的老题）。
+                2. 优先挑选河南省的题目：河南省名校联考、河南各地市联考/模拟、河南中高考真题；实在找不到再用其他省份近两年的联考题。
+                3. 真题的 answer 必须采用官方参考答案（分步、简洁），source 字段注明真实来源（如"2025·河南郑州一模"、"2026·河南名校联考"）。
+                4. 联网搜不到足够题目时才自行编写新题（题型要新，贴近近年考法），source 标注"改编"。
                 """.trimIndent() else "" }
                 请基于同一知识点出 3 道由易到难的变式练习题，用于举一反三。
                 只输出 JSON 数组（不要 markdown 代码块），每个元素字段：
-                question(新题干，含完整选项，公式用LaTeX写在${'$'}中)、answer(参考答案，简洁)、analysis(分步解析，每步一行，不超过3步，简洁，公式用${'$'}包裹)、difficulty(1到3的整数)、source(来源标注)。
+                question(新题干，含完整选项)、answer(参考答案，简洁)、analysis(分步解析，每步一行，不超过3步，简洁)、difficulty(1到3的整数)、source(来源标注)。【公式格式硬性要求，严格遵守】所有公式必须写在${'$'}...${'$'}内；分数一律\\frac{分子}{分母}，花括号不可省略；上下标一律^{...}和_{...}，花括号不可省略；括号直接用()和[]，禁止\\left和\\right；禁止\\mathrm、\\text、\\backslash；希腊字母用\\pi \\theta \\alpha等；整数集写\\mathbb{Z}；只允许以上常用命令，其他LaTeX命令一律禁止。
                 严格控制总篇幅，解析务必精简。
             """.trimIndent()
 
